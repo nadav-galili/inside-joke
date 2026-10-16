@@ -1,5 +1,6 @@
 import { createDb } from '@insidejoke/db';
 import { claimNextJob } from './claim.ts';
+import { expoNotify } from './notify.ts';
 import { claudeScriptWriter } from './providers/script-writer.ts';
 import { falVideoGenerator } from './providers/video-generator.ts';
 import { runJob } from './run-job.ts';
@@ -25,6 +26,7 @@ const steps = createSteps(db, {
     secretAccessKey: required('R2_SECRET_ACCESS_KEY'),
   }),
 });
+const notify = expoNotify(db);
 /** How long to sleep when the queue is empty. */
 const IDLE_MS = 2000;
 
@@ -37,7 +39,7 @@ console.log('worker polling for jobs');
 while (!stopping) {
   const job = await claimNextJob(db);
   if (job) {
-    await runJob(db, job, steps);
+    await runJob(db, job, steps, notify);
   } else {
     await new Promise((resolve) => setTimeout(resolve, IDLE_MS));
   }

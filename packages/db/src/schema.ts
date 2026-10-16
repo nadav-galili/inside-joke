@@ -28,6 +28,15 @@ export const users = pgTable('users', {
   freeVideoUsed: boolean('free_video_used').notNull().default(false),
   /** Videos paid for but not yet spent, including credits given back for failed videos. */
   videoCredits: integer('video_credits').notNull().default(0),
+  /** The AI data consent version the user agreed to (guideline 5.1.2(i)); null until they do. */
+  aiConsentVersion: text('ai_consent_version'),
+  /**
+   * The user's own selfie. It is copied to a `faces` row for each group they are in, so revoking
+   * it revokes every one of those.
+   */
+  selfieKey: text('selfie_key'),
+  selfieConsentVersion: text('selfie_consent_version'),
+  expoPushToken: text('expo_push_token'),
   createdAt: timestamptz('created_at').notNull().defaultNow(),
 });
 
@@ -52,6 +61,10 @@ export const members = pgTable(
     userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
     displayName: text('display_name').notNull(),
     inviteStatus: inviteStatusEnum('invite_status').notNull().default('invited'),
+    /** The AI data consent a friend gave on the invite page; app users consent on `users`. */
+    aiConsentVersion: text('ai_consent_version'),
+    /** Secret in the link a web-joined friend keeps to remove their face or report a video. */
+    manageToken: text('manage_token').unique(),
     createdAt: timestamptz('created_at').notNull().defaultNow(),
   },
   (t) => [index('members_group_idx').on(t.groupId)],

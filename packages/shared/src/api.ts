@@ -1,0 +1,93 @@
+import { z } from 'zod';
+import { scriptSchema, type Script, type VideoStatus, type VideoStyle } from './video.ts';
+
+/**
+ * The services a user's data goes to, named on the consent screen before anything leaves the
+ * device (App Store guideline 5.1.2(i)). Change the version whenever this text changes.
+ */
+export const AI_PROVIDERS = [
+  { name: 'Anthropic (Claude)', receives: 'the chat text you paste, to write the script' },
+  { name: 'fal (MiniMax video model)', receives: 'the selfies of the cast, to make the video' },
+] as const;
+export const AI_CONSENT_VERSION = 'ai-v1';
+
+/** What someone agrees to when they add their own selfie. Stored with every face. */
+export const FACE_CONSENT_VERSION = 'face-v1';
+export const FACE_CONSENT_TEXT =
+  "This is a photo of me, taken by me. I agree that my group's members can put my face in " +
+  'AI-generated comedy videos made with Inside Joke, and that my photo is sent to fal to make ' +
+  'them. I can remove my face at any time, and nobody can then use it in a new video.';
+
+export const MAX_GROUP_NAME = 60;
+export const MAX_DISPLAY_NAME = 40;
+/** How many times a user can ask for a fresh script for one video. */
+export const MAX_SCRIPT_ATTEMPTS = 3;
+
+export const createGroupSchema = z.object({
+  name: z.string().trim().min(1).max(MAX_GROUP_NAME),
+  /** What the group calls the creator; the script writer uses it to cast them. */
+  myName: z.string().trim().min(1).max(MAX_DISPLAY_NAME),
+});
+
+export const recordSelfieSchema = z.object({
+  key: z.string().min(1),
+  consentTextVersion: z.literal(FACE_CONSENT_VERSION),
+});
+
+/** A friend joining from the invite page with their own selfie. */
+export const joinGroupSchema = z.object({
+  displayName: z.string().trim().min(1).max(MAX_DISPLAY_NAME),
+  key: z.string().min(1),
+  consentTextVersion: z.literal(FACE_CONSENT_VERSION),
+  aiConsentVersion: z.literal(AI_CONSENT_VERSION),
+});
+
+export const aiConsentSchema = z.object({ version: z.literal(AI_CONSENT_VERSION) });
+export const pushTokenSchema = z.object({ token: z.string().min(1).max(200) });
+export const updateScriptSchema = z.object({ script: scriptSchema });
+
+export type UploadTarget = { key: string; uploadUrl: string };
+
+export type Me = {
+  id: string;
+  aiConsented: boolean;
+  hasSelfie: boolean;
+  selfieUrl: string | null;
+  freeVideoUsed: boolean;
+  videoCredits: number;
+};
+
+export type GroupSummary = { id: string; name: string; memberCount: number; inviteUrl: string };
+
+export type MemberView = {
+  id: string;
+  displayName: string;
+  /** Has an active, consented selfie, so can be cast. */
+  hasFace: boolean;
+  isMe: boolean;
+};
+
+export type GroupDetail = GroupSummary & { members: MemberView[] };
+
+export type VideoSummary = {
+  id: string;
+  groupId: string;
+  status: VideoStatus;
+  style: VideoStyle;
+  title: string | null;
+  createdAt: string;
+};
+
+export type VideoDetail = VideoSummary & {
+  script: Script | null;
+  cast: { memberId: string; displayName: string }[];
+  watermarked: boolean;
+  /** A short-lived link to the finished video, once it is ready. */
+  playUrl: string | null;
+  /** Whether a fresh script can still be asked for. */
+  canRegenerate: boolean;
+};
+
+/** What approving the script costs the user: their free video, a credit, or a purchase. */
+export type ApproveResult =
+  { status: 'paid'; paidWith: 'free' | 'credit' } | { error: 'payment_required' };
