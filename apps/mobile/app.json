@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Inside Joke",
+    "slug": "inside-joke",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "insidejoke",
+    "userInterfaceStyle": "automatic",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "ios": {
+      "bundleIdentifier": "app.insidejoke",
+      "supportsTablet": false,
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "@clerk/expo",
+      "expo-web-browser",
+      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to take your selfie so you can star in your group's videos",
+          "photosPermission": "Allow $(PRODUCT_NAME) to pick a selfie so you can star in your group's videos",
+          "microphonePermission": false
+        }
+      ],
+      "expo-video"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "owner": "nadavg"
+  }
+}

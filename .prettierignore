@@ -1,0 +1,12 @@
+node_modules
+dist
+.expo
+.turbo
+pnpm-lock.yaml
+apps/api/drizzle/meta
+apps/mobile/drizzle/meta
+docs/
+*.md
+apps/mobile/src/db/migrations.ts
+.agents/skills
+skills-lock.json
