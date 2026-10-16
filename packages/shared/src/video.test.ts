@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createVideoSchema } from './video.ts';
+import { createVideoSchema, isRtlLanguage } from './video.ts';
 
 const id = () => crypto.randomUUID();
 
@@ -29,5 +29,13 @@ describe('createVideoSchema', () => {
       castMemberIds: [id(), id()],
     };
     expect(createVideoSchema.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe('isRtlLanguage', () => {
+  it('treats Hebrew as right to left, with or without a region', () => {
+    expect(isRtlLanguage('he')).toBe(true);
+    expect(isRtlLanguage('he-IL')).toBe(true);
+    expect(isRtlLanguage('en')).toBe(false);
   });
 });

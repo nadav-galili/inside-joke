@@ -13,7 +13,9 @@ The same stack as Mibo (nadav-galili/chores): a pnpm + Turborepo monorepo on Nod
 - `apps/mobile`: Expo (React Native) app with expo-router and Clerk.
 - `apps/api`: Hono API on Railway. Clerk auth, creates videos and queues their jobs.
 - `apps/worker`: background worker on Railway. Claims `generation_jobs` rows with
-  `FOR UPDATE SKIP LOCKED` and runs the steps script, keyframes, clips, stitch.
+  `FOR UPDATE SKIP LOCKED` and runs three steps: `script` (Claude writes the scene from the chat),
+  `video` (MiniMax H3 on fal makes one 15s take from the cast's selfies) and `finish` (ffmpeg burns
+  in subtitles and the watermark, then uploads to R2).
 - `packages/db`: Drizzle schema, client and migrations, shared by the API and the worker.
 - `packages/shared`: zod schemas and constants shared by every app.
 
@@ -21,6 +23,8 @@ The same stack as Mibo (nadav-galili/chores): a pnpm + Turborepo monorepo on Nod
 
 - `pnpm install`, then `pnpm typecheck`, `pnpm lint`, `pnpm test`.
 - Worker and API tests need Postgres: `TEST_DATABASE_URL=postgres://postgres:postgres@localhost:5499/insidejoke_test`.
+- One video end to end, no database: `pnpm --filter worker make-video --chat chat.txt --style telenovela --face Dani=dani.jpg --face Ziv=ziv.jpg --out video.mp4`
+  (needs `ANTHROPIC_API_KEY` and `FAL_KEY`; asks before the paid fal call).
 - Schema change: edit `packages/db/src/schema.ts`, then `pnpm --filter @insidejoke/db db:generate`.
   The API runs migrations on start.
 

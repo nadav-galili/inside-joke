@@ -1,4 +1,4 @@
-CREATE TYPE "public"."generation_step" AS ENUM('script', 'keyframes', 'clips', 'stitch');--> statement-breakpoint
+CREATE TYPE "public"."generation_step" AS ENUM('script', 'video', 'finish');--> statement-breakpoint
 CREATE TYPE "public"."invite_status" AS ENUM('invited', 'joined', 'left');--> statement-breakpoint
 CREATE TYPE "public"."job_status" AS ENUM('queued', 'running', 'done', 'failed');--> statement-breakpoint
 CREATE TYPE "public"."video_status" AS ENUM('draft', 'script_ready', 'paid', 'generating', 'ready', 'failed', 'deleted');--> statement-breakpoint
