@@ -21,6 +21,7 @@
       "expo-router",
       "expo-secure-store",
       "@clerk/expo",
+      "expo-apple-authentication",
       "expo-web-browser",
       "expo-notifications",
       [

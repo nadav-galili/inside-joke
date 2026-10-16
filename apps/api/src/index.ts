@@ -2,17 +2,28 @@ import { serve } from '@hono/node-server';
 import { createApp } from './app.ts';
 import { clerkVerifyToken } from './auth.ts';
 import { createDb, runMigrations } from '@insidejoke/db';
+import { r2Storage } from './storage.ts';
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error('DATABASE_URL is required');
-const clerkSecretKey = process.env.CLERK_SECRET_KEY;
-if (!clerkSecretKey) throw new Error('CLERK_SECRET_KEY is required');
+function required(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`${name} is required`);
+  return value;
+}
+
 const port = Number(process.env.PORT ?? 3000);
-
-const db = createDb(databaseUrl);
+const db = createDb(required('DATABASE_URL'));
 await runMigrations(db);
 
-const app = createApp(db, { verifyToken: clerkVerifyToken(clerkSecretKey) });
+const app = createApp(db, {
+  verifyToken: clerkVerifyToken(required('CLERK_SECRET_KEY')),
+  storage: r2Storage({
+    accountId: required('R2_ACCOUNT_ID'),
+    bucket: required('R2_BUCKET'),
+    accessKeyId: required('R2_ACCESS_KEY_ID'),
+    secretAccessKey: required('R2_SECRET_ACCESS_KEY'),
+  }),
+  publicUrl: required('PUBLIC_URL').replace(/\/$/, ''),
+});
 serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, (info) => {
   console.log(`api listening on :${info.port}`);
 });

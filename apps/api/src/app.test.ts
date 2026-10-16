@@ -1,0 +1,338 @@
+import {
+  createDb,
+  faces,
+  generationJobs,
+  members,
+  runMigrations,
+  users,
+  videos,
+  type Db,
+} from '@insidejoke/db';
+import {
+  AI_CONSENT_VERSION,
+  FACE_CONSENT_VERSION,
+  type GroupDetail,
+  type GroupSummary,
+  type Me,
+  type Script,
+  type VideoDetail,
+} from '@insidejoke/shared';
+import { and, eq, isNull, sql } from 'drizzle-orm';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { createApp } from './app.ts';
+import type { Storage } from './storage.ts';
+
+const testDbUrl = process.env.TEST_DATABASE_URL;
+
+/** In-memory storage: an "upload" is marking the key as present. */
+function fakeStorage() {
+  const objects = new Set<string>();
+  const storage: Storage = {
+    uploadUrl: async (key) => `https://r2.test/put/${key}`,
+    readUrl: async (key) => `https://r2.test/get/${key}`,
+    exists: async (key) => objects.has(key),
+    remove: async (key) => {
+      objects.delete(key);
+    },
+  };
+  return { storage, objects };
+}
+
+describe.skipIf(!testDbUrl)('api', () => {
+  let db: Db;
+  const { storage, objects } = fakeStorage();
+  let app: ReturnType<typeof createApp>;
+
+  beforeAll(async () => {
+    // A database of its own: the worker's tests share the job queue and clear it as they run.
+    const admin = createDb(testDbUrl!);
+    const name = `${new URL(testDbUrl!).pathname.slice(1)}_api`;
+    const exists = await admin.execute(sql`select 1 from pg_database where datname = ${name}`);
+    if (exists.length === 0) await admin.execute(sql.raw(`create database "${name}"`));
+    const url = new URL(testDbUrl!);
+    url.pathname = `/${name}`;
+    db = createDb(url.toString());
+    await runMigrations(db);
+    // The test token is the Clerk user id itself.
+    app = createApp(db, { verifyToken: async (t) => t, storage, publicUrl: 'https://api.test' });
+  });
+
+  /** A client signed in as a brand-new Clerk user. */
+  function client(clerkId = crypto.randomUUID()) {
+    const call = async (method: string, path: string, body?: unknown) => {
+      const res = await app.request(path, {
+        method,
+        headers: { authorization: `Bearer ${clerkId}`, 'content-type': 'application/json' },
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+      // Tests read whichever fields they check; the shared types cover the real clients.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return { status: res.status, body: (await res.json()) as any };
+    };
+    return { clerkId, call };
+  }
+
+  async function uploadSelfie(call: ReturnType<typeof client>['call']) {
+    const { body: target } = await call('POST', '/me/selfie/upload-url');
+    objects.add(target.key);
+    return call('POST', '/me/selfie', {
+      key: target.key,
+      consentTextVersion: FACE_CONSENT_VERSION,
+    });
+  }
+
+  /** A friend joining from the web invite page. */
+  async function joinAsFriend(inviteUrl: string, displayName: string) {
+    const code = inviteUrl.split('/join/')[1]!;
+    const target = (await (
+      await app.request(`/join/${code}/upload-url`, { method: 'POST' })
+    ).json()) as {
+      key: string;
+    };
+    objects.add(target.key);
+    const res = await app.request(`/join/${code}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        displayName,
+        key: target.key,
+        consentTextVersion: FACE_CONSENT_VERSION,
+        aiConsentVersion: AI_CONSENT_VERSION,
+      }),
+    });
+    return { status: res.status, body: (await res.json()) as { manageUrl: string } };
+  }
+
+  /** A signed-in creator with a selfie, AI consent and a group of three with faces. */
+  async function readyGroup() {
+    const me = client();
+    await me.call('POST', '/me/ai-consent', { version: AI_CONSENT_VERSION });
+    await uploadSelfie(me.call);
+    const { body: group } = await me.call('POST', '/groups', { name: 'Poker', myName: 'Nadav' });
+    await joinAsFriend(group.inviteUrl, 'Barvaz');
+    await joinAsFriend(group.inviteUrl, 'Dudi');
+    const { body: detail } = await me.call('GET', `/groups/${group.id}`);
+    return { me, group: detail as GroupDetail };
+  }
+
+  /** A video whose script the worker has written. */
+  async function scriptedVideo() {
+    const { me, group } = await readyGroup();
+    const cast = group.members.slice(1, 3);
+    const { body } = await me.call('POST', '/videos', {
+      groupId: group.id,
+      inputText: 'Barvaz: Caribbean station? Dudi: no.',
+      style: 'telenovela',
+      castMemberIds: cast.map((m) => m.id),
+    });
+    const script: Script = {
+      title: 'The Station',
+      premise: 'ברווז רוצה עמדת קאריבי',
+      setting: 'A poker room',
+      cast: cast.map((m, i) => ({ memberId: m.id, role: `ROLE${i}`, direction: 'Sweats.' })),
+      beats: [
+        { fromSecond: 0, toSecond: 7, action: 'a', speakerRole: null, line: '', subtitle: '' },
+        {
+          fromSecond: 7,
+          toSecond: 15,
+          action: 'b',
+          speakerRole: 'ROLE0',
+          line: 'No',
+          subtitle: 'לא',
+        },
+      ],
+      subtitleLanguage: 'he',
+    };
+    await db.update(videos).set({ status: 'script_ready', script }).where(eq(videos.id, body.id));
+    return { me, group, videoId: body.id as string, script };
+  }
+
+  it('rejects requests without a session', async () => {
+    const res = await app.request('/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('creates the user on first call', async () => {
+    const { call } = client();
+    const { status, body } = await call('GET', '/me');
+    expect(status).toBe(200);
+    expect(body as Me).toMatchObject({
+      aiConsented: false,
+      hasSelfie: false,
+      freeVideoUsed: false,
+    });
+  });
+
+  it("only accepts a selfie from the user's own upload link", async () => {
+    const a = client();
+    const b = client();
+    const { body: target } = await a.call('POST', '/me/selfie/upload-url');
+    objects.add(target.key);
+    const stolen = await b.call('POST', '/me/selfie', {
+      key: target.key,
+      consentTextVersion: FACE_CONSENT_VERSION,
+    });
+    expect(stolen.status).toBe(400);
+    const notUploaded = await a.call('POST', '/me/selfie', {
+      key: target.key.replace('.jpg', 'x.jpg'),
+      consentTextVersion: FACE_CONSENT_VERSION,
+    });
+    expect(notUploaded.status).toBe(400);
+  });
+
+  it('puts the creator and friends who joined with a selfie in the group', async () => {
+    const { group } = await readyGroup();
+    expect(group.members.map((m) => [m.displayName, m.hasFace, m.isMe])).toEqual([
+      ['Nadav', true, true],
+      ['Barvaz', true, false],
+      ['Dudi', true, false],
+    ]);
+  });
+
+  it('serves the invite page and 404s an unknown code', async () => {
+    const { group } = await readyGroup();
+    const page = await app.request(new URL(group.inviteUrl).pathname);
+    expect(page.status).toBe(200);
+    const text = await page.text();
+    expect(text).toContain('Poker');
+    expect(text).toContain('fal (MiniMax video model)');
+    expect((await app.request('/join/nope')).status).toBe(404);
+  });
+
+  it('lets a friend remove their face from the manage link', async () => {
+    const me = client();
+    await uploadSelfie(me.call);
+    const { body: group } = await me.call('POST', '/groups', { name: 'G', myName: 'Me' });
+    const { body } = await joinAsFriend(group.inviteUrl, 'Ziv');
+    const path = new URL(body.manageUrl).pathname;
+    const before = objects.size;
+    const res = await app.request(`${path}/remove`, { method: 'POST' });
+    expect(res.status).toBe(303);
+    expect(objects.size).toBe(before - 1);
+    const { body: detail } = await me.call('GET', `/groups/${group.id}`);
+    expect((detail as GroupDetail).members.map((m) => m.displayName)).toEqual(['Me']);
+  });
+
+  it('revokes the creator selfie in every group when they delete it', async () => {
+    const me = client();
+    await uploadSelfie(me.call);
+    const { body: group } = await me.call('POST', '/groups', { name: 'G', myName: 'Me' });
+    await me.call('DELETE', '/me/selfie');
+    const [owner] = await db.select().from(members).where(eq(members.groupId, group.id));
+    const active = await db
+      .select()
+      .from(faces)
+      .where(and(eq(faces.memberId, owner!.id), isNull(faces.revokedAt)));
+    expect(active).toHaveLength(0);
+    expect(((await me.call('GET', '/me')).body as Me).hasSelfie).toBe(false);
+  });
+
+  it('lists only my own groups', async () => {
+    const { me, group } = await readyGroup();
+    const { body } = await me.call('GET', '/groups');
+    expect((body as GroupSummary[]).map((g) => g.id)).toEqual([group.id]);
+    expect((await client().call('GET', `/groups/${group.id}`)).status).toBe(404);
+  });
+
+  it('needs AI consent before a video is made', async () => {
+    const me = client();
+    await uploadSelfie(me.call);
+    const { body: group } = await me.call('POST', '/groups', { name: 'G', myName: 'Me' });
+    await joinAsFriend(group.inviteUrl, 'Ziv');
+    const { body: detail } = await me.call('GET', `/groups/${group.id}`);
+    const res = await me.call('POST', '/videos', {
+      groupId: group.id,
+      inputText: 'hi',
+      style: 'telenovela',
+      castMemberIds: (detail as GroupDetail).members.map((m) => m.id),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('never returns the chat text', async () => {
+    const { me, videoId } = await scriptedVideo();
+    const { body } = await me.call('GET', `/videos/${videoId}`);
+    expect(JSON.stringify(body)).not.toContain('Caribbean station');
+    expect((body as VideoDetail).canRegenerate).toBe(true);
+  });
+
+  it('saves edited lines but not a changed cast', async () => {
+    const { me, videoId, script } = await scriptedVideo();
+    const edited = structuredClone(script);
+    edited.beats[1]!.subtitle = 'בשום פנים ואופן';
+    const ok = await me.call('PUT', `/videos/${videoId}/script`, { script: edited });
+    expect(ok.status).toBe(200);
+    expect((ok.body as VideoDetail).script!.beats[1]!.subtitle).toBe('בשום פנים ואופן');
+    const recast = structuredClone(script);
+    recast.cast = recast.cast
+      .slice(0, 1)
+      .concat({ ...recast.cast[0]!, memberId: crypto.randomUUID() });
+    expect((await me.call('PUT', `/videos/${videoId}/script`, { script: recast })).status).toBe(
+      400,
+    );
+  });
+
+  it('regenerates the script a limited number of times', async () => {
+    const { me, videoId } = await scriptedVideo();
+    const res = await me.call('POST', `/videos/${videoId}/regenerate`);
+    expect(res.status).toBe(200);
+    const [after] = await db.select().from(videos).where(eq(videos.id, videoId));
+    expect(after!.status).toBe('draft');
+    // The first script, the regenerated one and this one make the limit of three.
+    await db.insert(generationJobs).values({ videoId, step: 'script', status: 'done' });
+    await db.update(videos).set({ status: 'script_ready' }).where(eq(videos.id, videoId));
+    expect((await me.call('POST', `/videos/${videoId}/regenerate`)).status).toBe(429);
+  });
+
+  it('spends the free video, then a credit, then asks for payment, and deletes the chat text', async () => {
+    const { me, group } = await scriptedVideo().then(async (first) => {
+      const res = await first.me.call('POST', `/videos/${first.videoId}/approve`);
+      expect(res.body).toEqual({ status: 'paid', paidWith: 'free' });
+      const [v] = await db.select().from(videos).where(eq(videos.id, first.videoId));
+      expect(v!.inputText).toBeNull();
+      expect(v!.watermarked).toBe(true);
+      const jobs = await db
+        .select()
+        .from(generationJobs)
+        .where(and(eq(generationJobs.videoId, first.videoId), eq(generationJobs.step, 'video')));
+      expect(jobs).toHaveLength(1);
+      expect((await first.me.call('POST', `/videos/${first.videoId}/approve`)).status).toBe(409);
+      return first;
+    });
+
+    const makeScripted = async () => {
+      const cast = group.members.slice(1, 3).map((m) => m.id);
+      const { body } = await me.call('POST', '/videos', {
+        groupId: group.id,
+        inputText: 'again',
+        style: 'telenovela',
+        castMemberIds: cast,
+      });
+      await db.update(videos).set({ status: 'script_ready' }).where(eq(videos.id, body.id));
+      return body.id as string;
+    };
+
+    const second = await makeScripted();
+    expect((await me.call('POST', `/videos/${second}/approve`)).status).toBe(402);
+
+    await db.update(users).set({ videoCredits: 1 }).where(eq(users.clerkUserId, me.clerkId));
+    const paid = await me.call('POST', `/videos/${second}/approve`);
+    expect(paid.body).toEqual({ status: 'paid', paidWith: 'credit' });
+    const [v] = await db.select().from(videos).where(eq(videos.id, second));
+    expect(v!.watermarked).toBe(false);
+  });
+
+  it('gives a play link once ready and deletes the file with the video', async () => {
+    const { me, videoId } = await scriptedVideo();
+    objects.add(`videos/${videoId}.mp4`);
+    await db
+      .update(videos)
+      .set({ status: 'ready', r2Key: `videos/${videoId}.mp4` })
+      .where(eq(videos.id, videoId));
+    const { body } = await me.call('GET', `/videos/${videoId}`);
+    expect((body as VideoDetail).playUrl).toBe(`https://r2.test/get/videos/${videoId}.mp4`);
+    await me.call('DELETE', `/videos/${videoId}`);
+    expect(objects.has(`videos/${videoId}.mp4`)).toBe(false);
+    expect((await me.call('GET', `/videos/${videoId}`)).status).toBe(404);
+  });
+});

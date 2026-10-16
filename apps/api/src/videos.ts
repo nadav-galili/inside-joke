@@ -1,5 +1,12 @@
-import { createVideoSchema } from '@insidejoke/shared';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import {
+  createVideoSchema,
+  MAX_SCRIPT_ATTEMPTS,
+  updateScriptSchema,
+  type ApproveResult,
+  type Script,
+  type VideoDetail,
+} from '@insidejoke/shared';
+import { and, count, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { AuthVariables } from './auth.ts';
 import {
@@ -12,9 +19,65 @@ import {
   videos,
   type Db,
 } from '@insidejoke/db';
+import type { Storage } from './storage.ts';
+import { currentUser } from './users.ts';
 
-export function videoRoutes(db: Db) {
+type Video = typeof videos.$inferSelect;
+
+/** The edits a user may make to a script: words only, never the cast or the timing. */
+function sameShape(a: Script, b: Script): boolean {
+  const castIds = (s: Script) =>
+    s.cast
+      .map((c) => c.memberId)
+      .sort()
+      .join();
+  const timing = (s: Script) => s.beats.map((x) => `${x.fromSecond}-${x.toSecond}`).join();
+  return castIds(a) === castIds(b) && timing(a) === timing(b);
+}
+
+export function videoRoutes(db: Db, storage: Storage) {
   const app = new Hono<{ Variables: AuthVariables }>();
+
+  async function ownVideo(clerkUserId: string, id: string) {
+    const user = await currentUser(db, clerkUserId);
+    const [video] = await db
+      .select()
+      .from(videos)
+      .where(and(eq(videos.id, id), eq(videos.creatorId, user.id), ne(videos.status, 'deleted')));
+    return { user, video };
+  }
+
+  async function scriptAttempts(videoId: string) {
+    const [row] = await db
+      .select({ n: count() })
+      .from(generationJobs)
+      .where(and(eq(generationJobs.videoId, videoId), eq(generationJobs.step, 'script')));
+    return row?.n ?? 0;
+  }
+
+  async function detail(video: Video): Promise<VideoDetail> {
+    const cast = await db
+      .select({ memberId: members.id, displayName: members.displayName })
+      .from(videoCast)
+      .innerJoin(members, eq(members.id, videoCast.memberId))
+      .where(eq(videoCast.videoId, video.id));
+    return {
+      id: video.id,
+      groupId: video.groupId,
+      status: video.status,
+      style: video.style,
+      title: video.script?.title ?? null,
+      createdAt: video.createdAt.toISOString(),
+      script: video.script,
+      cast,
+      watermarked: video.watermarked,
+      playUrl: video.status === 'ready' && video.r2Key ? await storage.readUrl(video.r2Key) : null,
+      canRegenerate:
+        video.status === 'script_ready' &&
+        video.inputText !== null &&
+        (await scriptAttempts(video.id)) < MAX_SCRIPT_ATTEMPTS,
+    };
+  }
 
   /**
    * Creates a draft video and queues its script. The cast must be members of the group with a face
@@ -25,11 +88,9 @@ export function videoRoutes(db: Db) {
     if (!parsed.success) return c.json({ error: 'invalid_body', issues: parsed.error.issues }, 400);
     const { groupId, inputText, style, castMemberIds } = parsed.data;
 
-    const [user] = await db
-      .select()
-      .from(users)
-      .where(eq(users.clerkUserId, c.get('clerkUserId')));
-    if (!user) return c.json({ error: 'unknown_user' }, 404);
+    const user = await currentUser(db, c.get('clerkUserId'));
+    // Guideline 5.1.2(i): nothing goes to an AI provider before the user agreed to it.
+    if (!user.aiConsentVersion) return c.json({ error: 'ai_consent_required' }, 403);
 
     const [group] = await db
       .select()
@@ -62,15 +123,93 @@ export function videoRoutes(db: Db) {
     return c.json({ id: video.id, status: video.status }, 201);
   });
 
+  // The raw chat text never leaves the server once it's been sent.
   app.get('/:id', async (c) => {
-    const [row] = await db
-      .select({ video: videos })
-      .from(videos)
-      .innerJoin(users, eq(users.id, videos.creatorId))
-      .where(and(eq(videos.id, c.req.param('id')), eq(users.clerkUserId, c.get('clerkUserId'))));
-    if (!row) return c.json({ error: 'not_found' }, 404);
-    // The raw chat text never leaves the server once it's been sent.
-    return c.json({ ...row.video, inputText: undefined });
+    const { video } = await ownVideo(c.get('clerkUserId'), c.req.param('id'));
+    if (!video) return c.json({ error: 'not_found' }, 404);
+    return c.json(await detail(video));
+  });
+
+  /** Saves the user's tweaks to the lines and subtitles before they approve. */
+  app.put('/:id/script', async (c) => {
+    const parsed = updateScriptSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: 'invalid_body', issues: parsed.error.issues }, 400);
+    const { video } = await ownVideo(c.get('clerkUserId'), c.req.param('id'));
+    if (!video) return c.json({ error: 'not_found' }, 404);
+    if (video.status !== 'script_ready' || !video.script)
+      return c.json({ error: 'not_editable' }, 409);
+    if (!sameShape(video.script, parsed.data.script))
+      return c.json({ error: 'shape_changed' }, 400);
+    const [updated] = await db
+      .update(videos)
+      .set({ script: parsed.data.script })
+      .where(eq(videos.id, video.id))
+      .returning();
+    return c.json(await detail(updated!));
+  });
+
+  /** Throws the script away and writes a new one from the same chat text. */
+  app.post('/:id/regenerate', async (c) => {
+    const { video } = await ownVideo(c.get('clerkUserId'), c.req.param('id'));
+    if (!video) return c.json({ error: 'not_found' }, 404);
+    if (video.status !== 'script_ready' || !video.inputText) {
+      return c.json({ error: 'not_regenerable' }, 409);
+    }
+    if ((await scriptAttempts(video.id)) >= MAX_SCRIPT_ATTEMPTS) {
+      return c.json({ error: 'too_many_attempts' }, 429);
+    }
+    await db.transaction(async (tx) => {
+      await tx.update(videos).set({ status: 'draft', script: null }).where(eq(videos.id, video.id));
+      await tx.insert(generationJobs).values({ videoId: video.id, step: 'script' });
+    });
+    return c.json({ ok: true });
+  });
+
+  /**
+   * Approves the script and starts the video. It's paid with the user's one free (watermarked)
+   * video, or a credit; without either the app has to sell one first. The chat text is deleted here.
+   */
+  app.post('/:id/approve', async (c) => {
+    const { user, video } = await ownVideo(c.get('clerkUserId'), c.req.param('id'));
+    if (!video) return c.json({ error: 'not_found' }, 404);
+    const result = await db.transaction(async (tx): Promise<ApproveResult | null> => {
+      const [locked] = await tx.select().from(videos).where(eq(videos.id, video.id)).for('update');
+      if (locked?.status !== 'script_ready') return null;
+      const [payer] = await tx.select().from(users).where(eq(users.id, user.id)).for('update');
+      let paidWith: 'free' | 'credit';
+      if (!payer!.freeVideoUsed) {
+        paidWith = 'free';
+        await tx.update(users).set({ freeVideoUsed: true }).where(eq(users.id, user.id));
+      } else if (payer!.videoCredits > 0) {
+        paidWith = 'credit';
+        await tx
+          .update(users)
+          .set({ videoCredits: payer!.videoCredits - 1 })
+          .where(eq(users.id, user.id));
+      } else {
+        return { error: 'payment_required' };
+      }
+      await tx
+        .update(videos)
+        .set({ status: 'paid', inputText: null, watermarked: paidWith === 'free' })
+        .where(eq(videos.id, video.id));
+      await tx.insert(generationJobs).values({ videoId: video.id, step: 'video' });
+      return { status: 'paid', paidWith };
+    });
+    if (!result) return c.json({ error: 'not_approvable' }, 409);
+    return c.json(result, 'error' in result ? 402 : 200);
+  });
+
+  /** Deletes the video for good, including the file. */
+  app.delete('/:id', async (c) => {
+    const { video } = await ownVideo(c.get('clerkUserId'), c.req.param('id'));
+    if (!video) return c.json({ error: 'not_found' }, 404);
+    await db
+      .update(videos)
+      .set({ status: 'deleted', inputText: null, r2Key: null })
+      .where(eq(videos.id, video.id));
+    if (video.r2Key) await storage.remove(video.r2Key);
+    return c.json({ ok: true });
   });
 
   return app;
