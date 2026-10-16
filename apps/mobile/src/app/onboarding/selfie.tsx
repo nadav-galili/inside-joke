@@ -1,15 +1,24 @@
 import { FACE_CONSENT_TEXT, FACE_CONSENT_VERSION, type UploadTarget } from '@insidejoke/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Body, Button, ErrorText, Screen, Title } from '../../components/ui';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import {
+  Body,
+  Button,
+  ErrorText,
+  Eyebrow,
+  Pill,
+  Pressy,
+  Rise,
+  Screen,
+  Title,
+} from '../../components/ui';
 import { useApi } from '../../lib/api';
 import { takeSelfie, uploadSelfie } from '../../lib/selfie';
-import { useColors } from '../../lib/theme';
+import { colors as c, radius, type } from '../../lib/theme';
 
 /** The user takes their own selfie and agrees to how it's used. This is their consent record. */
 export default function Selfie() {
-  const c = useColors();
   const call = useApi();
   const [uri, setUri] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
@@ -45,52 +54,123 @@ export default function Selfie() {
   }
 
   return (
-    <Screen>
-      <Title>Star in your videos</Title>
-      <Body muted>
-        Take a clear selfie facing the camera, in good light. Only you can add your face.
-      </Body>
-      <Pressable onPress={shoot} style={[styles.photo, { backgroundColor: c.card }]}>
-        {uri ? (
-          <Image source={{ uri }} style={styles.photo} />
-        ) : (
-          <Text style={{ fontSize: 48 }}>🤳</Text>
-        )}
-      </Pressable>
-      <Button
-        title={uri ? 'Retake' : 'Take selfie'}
-        kind={uri ? 'secondary' : 'primary'}
-        onPress={shoot}
-      />
-      {uri && (
+    <Screen
+      footer={
         <>
-          <Pressable
+          <ErrorText>{error}</ErrorText>
+          {uri ? (
+            <>
+              <Button title="Save my selfie" onPress={save} busy={busy} disabled={!agreed} />
+              <Button title="Retake" kind="quiet" onPress={shoot} />
+            </>
+          ) : (
+            <Button title="Take selfie" onPress={shoot} />
+          )}
+        </>
+      }
+    >
+      <Rise>
+        <View style={{ gap: 10, marginTop: 12 }}>
+          <Eyebrow>Casting call</Eyebrow>
+          <Title>Star in your videos</Title>
+          <Body muted>Take a clear selfie facing the camera. Only you can add your face.</Body>
+        </View>
+      </Rise>
+      <Rise index={1}>
+        <Pressy
+          accessibilityRole="button"
+          accessibilityLabel={uri ? 'Retake selfie' : 'Take selfie'}
+          onPress={shoot}
+          style={[styles.frame, uri && styles.frameFilled]}
+        >
+          {uri ? (
+            <Image source={{ uri }} style={styles.photo} />
+          ) : (
+            <View style={styles.empty}>
+              <View style={styles.faceGuide} />
+              <Text style={[type.small, { color: c.muted }]}>Tap to open the camera</Text>
+            </View>
+          )}
+        </Pressy>
+      </Rise>
+      {!uri && (
+        <Rise index={2}>
+          <View style={styles.tips}>
+            {['Face the camera', 'Good light', 'No sunglasses'].map((t) => (
+              <Pill key={t} label={t} />
+            ))}
+          </View>
+        </Rise>
+      )}
+      {uri && (
+        <Rise>
+          <Pressy
             accessibilityRole="checkbox"
             accessibilityState={{ checked: agreed }}
+            haptic="tick"
             onPress={() => setAgreed(!agreed)}
-            style={styles.check}
+            style={[styles.consent, agreed && { borderColor: c.accent }]}
           >
-            <Text style={{ fontSize: 22 }}>{agreed ? '☑️' : '⬜️'}</Text>
-            <Body style={{ flex: 1 }}>{FACE_CONSENT_TEXT}</Body>
-          </Pressable>
-          <Button title="Save my selfie" onPress={save} busy={busy} disabled={!agreed} />
-        </>
+            <View style={[styles.box, agreed && styles.boxOn]}>
+              {agreed && <Text style={styles.boxMark}>✓</Text>}
+            </View>
+            <Body small style={{ flex: 1 }}>
+              {FACE_CONSENT_TEXT}
+            </Body>
+          </Pressy>
+        </Rise>
       )}
-      <ErrorText>{error}</ErrorText>
-      <View style={{ height: 24 }} />
     </Screen>
   );
 }
 
+const FRAME = 230;
+
 const styles = StyleSheet.create({
-  photo: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+  frame: {
+    width: FRAME,
+    height: FRAME,
+    borderRadius: FRAME / 2,
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: c.accent,
+    backgroundColor: c.card,
     overflow: 'hidden',
+    marginVertical: 8,
   },
-  check: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  frameFilled: { borderStyle: 'solid', borderWidth: 4 },
+  photo: { width: '100%', height: '100%' },
+  empty: { alignItems: 'center', gap: 14 },
+  faceGuide: {
+    width: 92,
+    height: 116,
+    borderRadius: 50,
+    borderWidth: 2,
+    borderColor: c.border,
+  },
+  tips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
+  consent: {
+    flexDirection: 'row',
+    gap: 14,
+    alignItems: 'flex-start',
+    backgroundColor: c.card,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    padding: 16,
+  },
+  box: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: c.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boxOn: { backgroundColor: c.accent, borderColor: c.accent },
+  boxMark: { color: c.onAccent, fontSize: 14, fontWeight: '900' },
 });

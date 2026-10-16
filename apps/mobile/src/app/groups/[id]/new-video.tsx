@@ -8,47 +8,27 @@ import {
 } from '@insidejoke/shared';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { Body, Button, ErrorText, Field, Loading, Screen } from '../../../components/ui';
+import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { GenrePoster } from '../../../components/cinema';
+import {
+  Avatar,
+  Button,
+  ErrorText,
+  Eyebrow,
+  Field,
+  Loading,
+  Pressy,
+  Rise,
+  Screen,
+  Title,
+} from '../../../components/ui';
 import { ApiError, useApi, useResource } from '../../../lib/api';
 import { STYLE_LABELS } from '../../../lib/styles';
-import { useColors, type Colors } from '../../../lib/theme';
-
-function Chip({
-  label,
-  selected,
-  onPress,
-  c,
-}: {
-  label: string;
-  selected: boolean;
-  onPress: () => void;
-  c: Colors;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      onPress={onPress}
-      style={[
-        styles.chip,
-        {
-          borderColor: selected ? c.accent : c.border,
-          backgroundColor: selected ? c.accent : c.card,
-        },
-      ]}
-    >
-      <Text style={{ color: selected ? c.onAccent : c.text, fontSize: 16, fontWeight: '600' }}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
+import { colors as c, type } from '../../../lib/theme';
 
 /** Paste the chat moment, pick a genre and the cast. The script is written next, before paying. */
 export default function NewVideo() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const c = useColors();
   const call = useApi();
   const group = useResource<GroupDetail>(`/groups/${id}`);
   const [text, setText] = useState('');
@@ -91,55 +71,94 @@ export default function NewVideo() {
 
   const ready = text.trim().length > 0 && style !== null && cast.length >= MIN_CAST;
   return (
-    <Screen>
-      <Field
-        label="The moment"
-        value={text}
-        onChangeText={setText}
-        multiline
-        maxLength={MAX_INPUT_CHARS}
-        placeholder="Paste the messages from your group chat, or describe the inside joke."
-      />
-      <Body muted>
-        {text.length}/{MAX_INPUT_CHARS}. We delete this text once you approve the script.
-      </Body>
+    <Screen
+      footer={
+        <>
+          <ErrorText>{error}</ErrorText>
+          <Button title="Write the script" onPress={submit} busy={busy} disabled={!ready} />
+        </>
+      }
+    >
+      <Rise>
+        <View style={{ gap: 10 }}>
+          <Eyebrow>New video</Eyebrow>
+          <Title>What happened?</Title>
+        </View>
+      </Rise>
+      <Rise index={1}>
+        <Field
+          label="The moment"
+          value={text}
+          onChangeText={setText}
+          multiline
+          maxLength={MAX_INPUT_CHARS}
+          placeholder="Paste the messages from your group chat, or describe the inside joke."
+          hint={`${text.length}/${MAX_INPUT_CHARS}. We delete this text once you approve the script.`}
+        />
+      </Rise>
 
-      <Text style={[styles.heading, { color: c.text }]}>Style</Text>
-      <View style={styles.wrap}>
-        {VIDEO_STYLES.map((s) => (
-          <Chip
-            key={s}
-            c={c}
-            label={`${STYLE_LABELS[s].emoji} ${STYLE_LABELS[s].label}`}
-            selected={style === s}
-            onPress={() => setStyle(s)}
-          />
-        ))}
-      </View>
+      <Rise index={2}>
+        <View style={styles.section}>
+          <Eyebrow color={c.muted}>Genre</Eyebrow>
+          <View style={styles.grid}>
+            {VIDEO_STYLES.map((s) => (
+              <Pressy
+                key={s}
+                accessibilityRole="radio"
+                accessibilityLabel={STYLE_LABELS[s].label}
+                accessibilityState={{ selected: style === s }}
+                haptic="tick"
+                onPress={() => setStyle(s)}
+                style={styles.genre}
+              >
+                <GenrePoster genre={s} height={112} selected={style === s} />
+              </Pressy>
+            ))}
+          </View>
+        </View>
+      </Rise>
 
-      <Text style={[styles.heading, { color: c.text }]}>
-        Cast ({MIN_CAST} to {MAX_CAST})
-      </Text>
-      <View style={styles.wrap}>
-        {castable.map((m) => (
-          <Chip
-            key={m.id}
-            c={c}
-            label={m.displayName}
-            selected={cast.includes(m.id)}
-            onPress={() => toggle(m.id)}
-          />
-        ))}
-      </View>
-
-      <Button title="Write the script" onPress={submit} busy={busy} disabled={!ready} />
-      <ErrorText>{error}</ErrorText>
+      <Rise index={3}>
+        <View style={styles.section}>
+          <Eyebrow color={c.muted}>
+            Cast · {MIN_CAST} to {MAX_CAST}
+          </Eyebrow>
+          <View style={styles.cast}>
+            {castable.map((m) => {
+              const on = cast.includes(m.id);
+              return (
+                <Pressy
+                  key={m.id}
+                  accessibilityRole="checkbox"
+                  accessibilityLabel={m.displayName}
+                  accessibilityState={{ checked: on }}
+                  haptic="tick"
+                  onPress={() => toggle(m.id)}
+                  style={styles.person}
+                >
+                  <Avatar name={m.displayName} size={58} ring={on} dim={!on} />
+                  <Text
+                    numberOfLines={1}
+                    style={[type.small, { color: on ? c.text : c.muted, fontWeight: '600' }]}
+                  >
+                    {m.displayName}
+                  </Text>
+                </Pressy>
+              );
+            })}
+          </View>
+        </View>
+      </Rise>
     </Screen>
   );
 }
 
+const GENRE = (Dimensions.get('window').width - 40 - 10) / 2;
+
 const styles = StyleSheet.create({
-  heading: { fontSize: 18, fontWeight: '800', marginTop: 8 },
-  wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9 },
+  section: { gap: 12 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  genre: { width: GENRE },
+  cast: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
+  person: { width: 66, alignItems: 'center', gap: 6 },
 });

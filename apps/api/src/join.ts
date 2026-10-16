@@ -23,74 +23,184 @@ const page = (title: string, body: ReturnType<typeof html>) =>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="robots" content="noindex" />
         <title>${title}</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Courier+Prime:wght@700&display=swap"
+        />
         <style>
+          /* The app's "Opening Night" look: velvet ground, house-light text, one amber bulb. */
           :root {
-            color-scheme: light dark;
-            --accent: #ff5a36;
+            color-scheme: dark;
+            --velvet: #1a0e16;
+            --card: #251520;
+            --raised: #33202c;
+            --line: #4a3140;
+            --cream: #fff3e2;
+            --dust: #bba2ab;
+            --bulb: #ffb53d;
+            --on-bulb: #2a1405;
+            --display: 'Bricolage Grotesque', 'Avenir Next', system-ui, sans-serif;
+          }
+          * {
+            box-sizing: border-box;
           }
           body {
             font:
-              17px/1.45 -apple-system,
+              17px/1.5 -apple-system,
               system-ui,
               sans-serif;
+            background: var(--velvet);
+            color: var(--cream);
             margin: 0 auto;
             max-width: 480px;
-            padding: 24px 16px 48px;
+            padding: 32px 20px 56px;
+          }
+          .eyebrow {
+            font:
+              700 12px/1 'Courier Prime',
+              ui-monospace,
+              monospace;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--bulb);
+            margin: 0 0 12px;
           }
           h1 {
-            font-size: 26px;
-            margin: 0 0 8px;
+            font: 800 34px/1.02 var(--display);
+            letter-spacing: -0.03em;
+            margin: 0 0 12px;
+            text-wrap: balance;
+          }
+          a {
+            color: var(--bulb);
+            word-break: break-all;
           }
           label {
             display: block;
-            margin: 16px 0 6px;
-            font-weight: 600;
+            margin: 24px 0 8px;
+            font:
+              700 12px/1 'Courier Prime',
+              ui-monospace,
+              monospace;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--dust);
           }
           input[type='text'] {
             width: 100%;
-            box-sizing: border-box;
-            padding: 12px;
+            padding: 15px 16px;
             font-size: 17px;
-            border-radius: 10px;
-            border: 1px solid #8886;
+            color: var(--cream);
+            background: var(--raised);
+            border-radius: 16px;
+            border: 1.5px solid transparent;
+            outline: none;
+          }
+          input[type='text']:focus {
+            border-color: var(--bulb);
+          }
+          .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            opacity: 0;
+            overflow: hidden;
+          }
+          .shot {
+            width: 200px;
+            height: 200px;
+            margin: 8px auto 0;
+            border-radius: 50%;
+            border: 2px dashed var(--bulb);
+            background: var(--card);
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            cursor: pointer;
+            font:
+              15px/1.3 -apple-system,
+              system-ui,
+              sans-serif;
+            letter-spacing: 0;
+            text-transform: none;
+            color: var(--dust);
+            text-align: center;
+          }
+          .shot:has(img:not([hidden])) {
+            border: 4px solid var(--bulb);
+          }
+          .shot:focus-within {
+            outline: 2px solid var(--cream);
+            outline-offset: 4px;
+          }
+          img.preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
           }
           .check {
             display: flex;
-            gap: 10px;
-            font-weight: 400;
+            gap: 12px;
             align-items: flex-start;
+            background: var(--card);
+            border-radius: 18px;
+            padding: 16px;
+            margin-top: 12px;
+            font:
+              15px/1.45 -apple-system,
+              system-ui,
+              sans-serif;
+            letter-spacing: 0;
+            text-transform: none;
+            color: var(--cream);
           }
           .check input {
-            margin-top: 5px;
+            accent-color: var(--bulb);
+            width: 20px;
+            height: 20px;
+            margin: 1px 0 0;
+            flex: none;
+          }
+          .check ul {
+            margin: 8px 0 0;
+            padding-left: 18px;
+            color: var(--dust);
           }
           button {
             width: 100%;
-            margin-top: 24px;
-            padding: 14px;
-            font-size: 17px;
-            font-weight: 700;
-            color: #fff;
-            background: var(--accent);
+            margin-top: 28px;
+            padding: 17px;
+            font: 800 17px var(--display);
+            color: var(--on-bulb);
+            background: var(--bulb);
             border: 0;
-            border-radius: 12px;
+            border-radius: 18px;
+            box-shadow: 0 10px 30px -10px var(--bulb);
+            cursor: pointer;
+          }
+          button:active {
+            transform: scale(0.98);
           }
           button:disabled {
             opacity: 0.5;
           }
           .muted {
-            opacity: 0.7;
-            font-size: 15px;
+            color: var(--dust);
           }
-          img.preview {
-            width: 160px;
-            height: 160px;
-            object-fit: cover;
-            border-radius: 80px;
-            display: block;
-            margin: 12px 0;
+          .card {
+            background: var(--card);
+            border-radius: 18px;
+            padding: 16px;
+            margin-top: 16px;
           }
           .error {
-            color: #d33;
+            color: #ff6b6b;
+          }
+          @media (prefers-reduced-motion: reduce) {
+            button:active {
+              transform: none;
+            }
           }
         </style>
       </head>
@@ -119,7 +229,8 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
     return c.html(
       page(
         `Join ${group.name}`,
-        html`<h1>Star in ${group.name}'s videos</h1>
+        html`<p class="eyebrow">Casting call</p>
+          <h1>Star in ${group.name}'s videos</h1>
           <p class="muted">
             Your friends make short, funny AI videos from moments in your group chat. Add your own
             selfie to be in them. Only you can add your face.
@@ -134,8 +245,18 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
               autocomplete="given-name"
             />
             <label for="photo">Your selfie</label>
-            <input id="photo" type="file" accept="image/*" capture="user" required />
-            <img id="preview" class="preview" hidden alt="" />
+            <label class="shot" for="photo">
+              <span id="hint">Tap to take<br />your selfie</span>
+              <img id="preview" class="preview" hidden alt="Your selfie" />
+            </label>
+            <input
+              id="photo"
+              class="visually-hidden"
+              type="file"
+              accept="image/*"
+              capture="user"
+              required
+            />
             <label class="check"
               ><input id="face" type="checkbox" required /> <span>${FACE_CONSENT_TEXT}</span></label
             >
@@ -148,13 +269,16 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
                 </ul></span
               ></label
             >
-            <button id="go" type="submit">Join</button>
+            <button id="go" type="submit">Join the cast</button>
             <p id="err" class="error"></p>
           </form>
           <div id="done" hidden>
-            <h1>You're in!</h1>
-            <p>You can now star in ${group.name}'s videos.</p>
-            <p>Keep this link to remove your face at any time:<br /><a id="manage" href="#"></a></p>
+            <p class="eyebrow">You're in the cast</p>
+            <h1>See you on screen</h1>
+            <p class="muted">You can now star in ${group.name}'s videos.</p>
+            <p class="card">
+              Keep this link to remove your face at any time:<br /><a id="manage" href="#"></a>
+            </p>
           </div>
           <script>
             ${raw(joinScript(c.req.param('code')))};
@@ -215,13 +339,15 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
       page(
         'Your face in Inside Joke',
         face
-          ? html`<h1>${row.member.displayName} in ${row.groupName}</h1>
-              <p>Your selfie can be used in this group's new videos.</p>
+          ? html`<p class="eyebrow">Your face</p>
+              <h1>${row.member.displayName} in ${row.groupName}</h1>
+              <p class="muted">Your selfie can be used in this group's new videos.</p>
               <form method="post" action="/m/${c.req.param('token')}/remove">
                 <button type="submit">Remove my face</button>
               </form>`
-          : html`<h1>Your face is removed</h1>
-              <p>Nobody in ${row.groupName} can use it in a new video.</p>`,
+          : html`<p class="eyebrow">Your face</p>
+              <h1>Your face is removed</h1>
+              <p class="muted">Nobody in ${row.groupName} can use it in a new video.</p>`,
       ),
     );
   });
@@ -250,7 +376,7 @@ const code = ${JSON.stringify(code)};
 const $ = (id) => document.getElementById(id);
 $('photo').addEventListener('change', () => {
   const file = $('photo').files[0];
-  if (file) { $('preview').src = URL.createObjectURL(file); $('preview').hidden = false; }
+  if (file) { $('preview').src = URL.createObjectURL(file); $('preview').hidden = false; $('hint').hidden = true; }
 });
 async function toJpeg(file) {
   const bitmap = await createImageBitmap(file);

@@ -1,11 +1,11 @@
 import type { VideoStatus, VideoStyle } from '@insidejoke/shared';
 
 /** How each genre is offered in the app. Genres only, never a named film or show. */
-export const STYLE_LABELS: Record<VideoStyle, { label: string; emoji: string }> = {
-  action_trailer_80s: { label: '80s action trailer', emoji: '💥' },
-  nature_documentary: { label: 'Nature documentary', emoji: '🦁' },
-  telenovela: { label: 'Telenovela', emoji: '🌹' },
-  sports_commentary: { label: 'Sports commentary', emoji: '🎙️' },
+export const STYLE_LABELS: Record<VideoStyle, { label: string; tagline: string }> = {
+  action_trailer_80s: { label: '80s action trailer', tagline: 'Explosive' },
+  nature_documentary: { label: 'Nature documentary', tagline: 'Hushed' },
+  telenovela: { label: 'Telenovela', tagline: 'Dramatic' },
+  sports_commentary: { label: 'Sports commentary', tagline: 'Live' },
 };
 
 export const STATUS_LABELS: Record<VideoStatus, string> = {

@@ -5,7 +5,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "scheme": "insidejoke",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -25,6 +25,12 @@
       "expo-web-browser",
       "expo-notifications",
       [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#1a0e16"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to take your selfie so you can star in your group's videos",
@@ -32,7 +38,8 @@
           "microphonePermission": false
         }
       ],
-      "expo-video"
+      "expo-video",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

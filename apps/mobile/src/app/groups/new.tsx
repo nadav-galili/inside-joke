@@ -1,7 +1,8 @@
 import { MAX_DISPLAY_NAME, MAX_GROUP_NAME, type GroupSummary } from '@insidejoke/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Body, Button, ErrorText, Field, Screen } from '../../components/ui';
+import { View } from 'react-native';
+import { Body, Button, ErrorText, Eyebrow, Field, Screen, Title } from '../../components/ui';
 import { useApi } from '../../lib/api';
 
 export default function NewGroup() {
@@ -26,7 +27,24 @@ export default function NewGroup() {
   }
 
   return (
-    <Screen>
+    <Screen
+      footer={
+        <>
+          <ErrorText>{error}</ErrorText>
+          <Button
+            title="Create group"
+            onPress={create}
+            busy={busy}
+            disabled={!name.trim() || !myName.trim()}
+          />
+        </>
+      }
+    >
+      <View style={{ gap: 10, marginTop: 4 }}>
+        <Eyebrow>New group</Eyebrow>
+        <Title>Who's in the chat?</Title>
+        <Body muted>The script uses these names, so use the ones from your chat.</Body>
+      </View>
       <Field
         label="Group name"
         value={name}
@@ -34,6 +52,7 @@ export default function NewGroup() {
         placeholder="Poker Thursdays"
         maxLength={MAX_GROUP_NAME}
         autoFocus
+        returnKeyType="next"
       />
       <Field
         label="What does the group call you?"
@@ -41,15 +60,8 @@ export default function NewGroup() {
         onChangeText={setMyName}
         placeholder="Your nickname"
         maxLength={MAX_DISPLAY_NAME}
+        returnKeyType="done"
       />
-      <Body muted>The script uses these names, so use the ones from your chat.</Body>
-      <Button
-        title="Create group"
-        onPress={create}
-        busy={busy}
-        disabled={!name.trim() || !myName.trim()}
-      />
-      <ErrorText>{error}</ErrorText>
     </Screen>
   );
 }
