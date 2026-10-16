@@ -1,4 +1,5 @@
 import {
+  AI_CONSENT_VERSION,
   createVideoSchema,
   MAX_SCRIPT_ATTEMPTS,
   updateScriptSchema,
@@ -90,7 +91,9 @@ export function videoRoutes(db: Db, storage: Storage) {
 
     const user = await currentUser(db, c.get('clerkUserId'));
     // Guideline 5.1.2(i): nothing goes to an AI provider before the user agreed to it.
-    if (!user.aiConsentVersion) return c.json({ error: 'ai_consent_required' }, 403);
+    if (user.aiConsentVersion !== AI_CONSENT_VERSION) {
+      return c.json({ error: 'ai_consent_required' }, 403);
+    }
 
     const [group] = await db
       .select()

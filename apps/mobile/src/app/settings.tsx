@@ -4,6 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Image } from 'react-native';
 import { Body, Button, Loading, Screen } from '../components/ui';
+import { resetAnalytics } from '../lib/analytics';
 import { useApi, useResource } from '../lib/api';
 
 export default function Settings() {
@@ -60,7 +61,14 @@ export default function Settings() {
       {me.data.hasSelfie && (
         <Button title="Remove my face" kind="danger" onPress={removeFace} busy={busy} />
       )}
-      <Button title="Sign out" kind="secondary" onPress={() => void signOut()} />
+      <Button
+        title="Sign out"
+        kind="secondary"
+        onPress={() => {
+          resetAnalytics();
+          void signOut();
+        }}
+      />
     </Screen>
   );
 }

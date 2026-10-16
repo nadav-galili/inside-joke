@@ -1,8 +1,9 @@
 import { AI_CONSENT_VERSION, AI_PROVIDERS } from '@insidejoke/shared';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { Body, Button, Card, ErrorText, Screen, Title } from '../../components/ui';
+import { track } from '../../lib/analytics';
 import { useApi } from '../../lib/api';
 
 /**
@@ -11,6 +12,7 @@ import { useApi } from '../../lib/api';
  */
 export default function AiConsent() {
   const call = useApi();
+  const [adult, setAdult] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -19,8 +21,9 @@ export default function AiConsent() {
     try {
       await call('/me/ai-consent', {
         method: 'POST',
-        body: JSON.stringify({ version: AI_CONSENT_VERSION }),
+        body: JSON.stringify({ version: AI_CONSENT_VERSION, adult: true }),
       });
+      track('ai_consent_given');
       router.replace('/');
     } catch {
       setError('Something went wrong. Please try again.');
@@ -47,7 +50,16 @@ export default function AiConsent() {
         approve the script. You can remove your selfie at any time in Settings.
       </Body>
       <View style={{ flex: 1 }} />
-      <Button title="I agree" onPress={agree} busy={busy} />
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: adult }}
+        onPress={() => setAdult(!adult)}
+        style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}
+      >
+        <Text style={{ fontSize: 22 }}>{adult ? '☑️' : '⬜️'}</Text>
+        <Body style={{ flex: 1 }}>I'm 18 or older.</Body>
+      </Pressable>
+      <Button title="I agree" onPress={agree} busy={busy} disabled={!adult} />
       <ErrorText>{error}</ErrorText>
     </Screen>
   );

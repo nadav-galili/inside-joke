@@ -1,9 +1,11 @@
 import type { GroupSummary, Me } from '@insidejoke/shared';
 import { Link, Redirect, router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Pressable, Text } from 'react-native';
 import { Body, Button, Card, ErrorText, Loading, Screen } from '../components/ui';
 import { useResource } from '../lib/api';
+import { identify } from '../lib/analytics';
+import { configurePurchases } from '../lib/purchases';
 import { usePushNotifications } from '../lib/push';
 import { useColors } from '../lib/theme';
 
@@ -14,6 +16,12 @@ export default function Home() {
   const groups = useResource<GroupSummary[]>('/groups');
   const onboarded = !!me.data?.aiConsented && !!me.data?.hasSelfie;
   usePushNotifications(onboarded);
+  const userId = me.data?.id;
+  useEffect(() => {
+    if (!userId) return;
+    identify(userId);
+    configurePurchases(userId);
+  }, [userId]);
 
   const { reload: reloadMe } = me;
   const { reload: reloadGroups } = groups;
