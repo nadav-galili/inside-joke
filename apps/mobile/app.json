@@ -4,6 +4,7 @@
     "slug": "inside-joke",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "insidejoke",
     "userInterfaceStyle": "dark",
     "runtimeVersion": {
@@ -27,7 +28,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#1a0e16"
+          "image": "./assets/splash.png",
+          "imageWidth": 220,
+          "backgroundColor": "#18060e"
         }
       ],
       [
