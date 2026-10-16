@@ -48,6 +48,9 @@ const SYSTEM = `You write ${VIDEO_SECONDS}-second comedy scenes that star a real
 
 Rules:
 - Find the single funniest moment or running joke in the chat text and build the scene around it. Keep it affectionate: tease, never humiliate.
+- People pay for this video to laugh, so a faithful retelling of the moment is not enough. Build it like a sketch: set up the situation, escalate it with a bigger and more absurd gag in each beat, and end on a punchline. Exaggerate physically and visually; the video model shows actions far better than it shows subtle wit.
+- The last beat is the payoff. Land it on the butt of the joke with a clear, readable reaction (crushed, outraged, defeated) and a short closing line.
+- Every prop, habit and detail must serve the joke. Leave out anything that doesn't, even if it appears in the chat.
 - Use only the cast you are given, ${MIN_CAST} to ${MAX_CAST} people, each exactly once in "cast" with the memberId you were given. Give each a short screen role in capitals.
 - Never describe anyone's face, body, age, skin or hair: their look comes from their own selfie.
 - The genre is a style only. Never name or imitate a real film, show, actor or character.
