@@ -6,7 +6,13 @@ import { buildAss } from './subtitles.ts';
 
 /** The font for subtitles and the watermark; it must cover Hebrew. Installed in the worker image. */
 export const FONT = process.env.SUBTITLE_FONT ?? 'DejaVu Sans';
-const WATERMARK_TEXT = 'Made with Inside Joke';
+/** The free-video watermark: the app's marquee-bubble mark with the name beside it, in the brand face. */
+const ASSETS = path.resolve(import.meta.dirname, '../assets');
+const WATERMARK_MARK = path.join(ASSETS, 'watermark.png');
+const WATERMARK_FONT = path.join(ASSETS, 'BricolageGrotesque_800ExtraBold.ttf');
+const WATERMARK_TEXT = 'Inside Joke';
+/** Width over height of watermark.png. */
+const MARK_ASPECT = 256 / 243;
 /** Every video says it's AI-made, paid or not (build plan, safety). */
 const AI_LABEL = 'AI-generated';
 
@@ -47,7 +53,7 @@ function filterValue(value: string): string {
 }
 
 /**
- * Burns the subtitles and the AI label in and, for a free video, a watermark in the top corner. Audio is copied
+ * Burns the subtitles and the AI label in and, for a free video, the watermark in the top right corner. Audio is copied
  * untouched; the output starts playing before it has fully downloaded (`+faststart`).
  */
 export async function renderFinal(opts: {
@@ -62,24 +68,38 @@ export async function renderFinal(opts: {
   const assPath = path.join(opts.workDir, 'subtitles.ass');
   await writeFile(assPath, buildAss(opts.beats, opts.subtitleLanguage, size, FONT));
   const labelSize = Math.round(size.width * 0.03);
-  const filters = [
+  const base = [
     `subtitles=${filterValue(assPath)}`,
     `drawtext=font=${filterValue(FONT)}:text=${filterValue(AI_LABEL)}:fontsize=${labelSize}:fontcolor=white@0.8:borderw=2:bordercolor=black@0.6:x=${labelSize}:y=${labelSize}`,
-  ];
+  ].join(',');
+  let graph = `[0:v]${base}[out]`;
+  const inputs = ['-i', opts.input];
   if (opts.watermark) {
-    const fontSize = Math.round(size.width * 0.04);
-    filters.push(
-      `drawtext=font=${filterValue(FONT)}:text=${filterValue(WATERMARK_TEXT)}:fontsize=${fontSize}:fontcolor=white@0.85:borderw=2:bordercolor=black@0.6:x=w-tw-${fontSize}:y=${fontSize}`,
-    );
+    const markH = Math.round(size.width * 0.1);
+    const markW = Math.round(markH * MARK_ASPECT);
+    const margin = Math.round(size.width * 0.035);
+    const fontSize = Math.round(markH * 0.42);
+    const textX = `w-tw-${margin + markW + Math.round(markH * 0.18)}`;
+    const textY = `${margin}+(${markH}-th)/2`;
+    inputs.push('-i', WATERMARK_MARK);
+    graph = [
+      `[0:v]${base}[base]`,
+      `[1:v]scale=${markW}:${markH},format=rgba,colorchannelmixer=aa=0.92[mark]`,
+      `[base][mark]overlay=x=W-w-${margin}:y=${margin},` +
+        `drawtext=fontfile=${filterValue(WATERMARK_FONT)}:text=${filterValue(WATERMARK_TEXT)}:fontsize=${fontSize}:fontcolor=0xFFF3E2@0.95:shadowcolor=black@0.55:shadowx=2:shadowy=2:x=${textX}:y=${textY}[out]`,
+    ].join(';');
   }
   await run('ffmpeg', [
     '-y',
     '-v',
     'error',
-    '-i',
-    opts.input,
-    '-vf',
-    filters.join(','),
+    ...inputs,
+    '-filter_complex',
+    graph,
+    '-map',
+    '[out]',
+    '-map',
+    '0:a?',
     '-c:v',
     'libx264',
     '-crf',
