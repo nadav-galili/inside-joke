@@ -1,11 +1,16 @@
 import { generationJobs, videos, type Db } from '@insidejoke/db';
 import { eq, sql } from 'drizzle-orm';
 import type { ClaimedJob } from './claim.ts';
-import { nextStep, StepNotImplementedError, type StepHandler } from './steps.ts';
+import { ScriptRefusedError } from './providers/script-writer.ts';
+import { ConsentWithdrawnError, nextStep, type StepHandler } from './steps.ts';
 
 export const MAX_ATTEMPTS = 3;
 /** Wait before a retry, doubling per attempt: 30s, 60s. */
 const retryDelaySeconds = (attempts: number) => 30 * 2 ** (attempts - 1);
+
+/** Failures that retrying the same input can't fix. */
+const isPermanent = (e: unknown) =>
+  e instanceof ScriptRefusedError || e instanceof ConsentWithdrawnError;
 
 export async function runJob(
   db: Db,
@@ -29,24 +34,21 @@ export async function runJob(
         .where(eq(generationJobs.id, job.id));
       await tx
         .update(videos)
-        .set({ costUsd: sql`${videos.costUsd} + ${result.costUsd}` })
+        .set({
+          ...result.videoUpdate,
+          costUsd: sql`${videos.costUsd} + ${result.costUsd}`,
+          ...(job.step === 'script' ? { status: 'script_ready' as const } : {}),
+          ...(job.step === 'video' ? { status: 'generating' as const } : {}),
+          ...(job.step === 'finish' ? { status: 'ready' as const, readyAt: new Date() } : {}),
+        })
         .where(eq(videos.id, job.videoId));
       const next = nextStep(job.step);
       if (next) await tx.insert(generationJobs).values({ videoId: job.videoId, step: next });
-      if (job.step === 'script') {
-        await tx.update(videos).set({ status: 'script_ready' }).where(eq(videos.id, job.videoId));
-      }
-      if (job.step === 'stitch') {
-        await tx
-          .update(videos)
-          .set({ status: 'ready', readyAt: new Date() })
-          .where(eq(videos.id, job.videoId));
-      }
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error(`job ${job.id} (${job.step}) failed on attempt ${job.attempts}`, e);
-    const retry = job.attempts < MAX_ATTEMPTS && !(e instanceof StepNotImplementedError);
+    const retry = job.attempts < MAX_ATTEMPTS && !isPermanent(e);
     await db
       .update(generationJobs)
       .set({

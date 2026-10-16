@@ -1,5 +1,5 @@
 {
-  "id": "ca241620-acc1-45ef-8457-e4fd1354df4c",
+  "id": "a9f52695-6bd1-41c7-b494-1e8cd0bc2c05",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -722,7 +722,7 @@
     "public.generation_step": {
       "name": "generation_step",
       "schema": "public",
-      "values": ["script", "keyframes", "clips", "stitch"]
+      "values": ["script", "video", "finish"]
     },
     "public.invite_status": {
       "name": "invite_status",
