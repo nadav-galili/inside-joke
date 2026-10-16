@@ -12,7 +12,8 @@ export function buildVideoPrompt(script: Script, style: VideoStyle): string {
     .join('\n');
   const beats = script.beats
     .map((b) => {
-      const said = b.speakerRole && b.line ? ` ${b.speakerRole} says: "${b.line}"` : '';
+      const speaker = b.speakerRole ?? 'An off-screen narrator';
+      const said = b.line ? ` ${speaker} says: "${b.line}"` : '';
       return `${b.fromSecond}-${b.toSecond}s: ${b.action}${said}`;
     })
     .join('\n');

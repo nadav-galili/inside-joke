@@ -13,4 +13,12 @@ describe('buildVideoPrompt', () => {
     expect(prompt).toContain('No subtitles, no captions, no on-screen text.');
     expect(prompt).toContain('telenovela');
   });
+
+  it('gives a line with no speaker to an off-screen narrator', () => {
+    const script = sampleScript(cast);
+    script.beats[0] = { ...script.beats[0]!, speakerRole: null, line: 'And he takes it again!' };
+    expect(buildVideoPrompt(script, 'sports_commentary')).toContain(
+      'An off-screen narrator says: "And he takes it again!"',
+    );
+  });
 });
