@@ -163,3 +163,17 @@ export const purchases = pgTable('purchases', {
   rawEvent: jsonb('raw_event').notNull(),
   createdAt: timestamptz('created_at').notNull().defaultNow(),
 });
+
+/**
+ * A request to take a video down. A cast member's request removes the video at once; the row is
+ * kept so takedowns can be reviewed.
+ */
+export const reports = pgTable('reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  videoId: uuid('video_id')
+    .notNull()
+    .references(() => videos.id, { onDelete: 'cascade' }),
+  memberId: uuid('member_id').references(() => members.id, { onDelete: 'set null' }),
+  reason: text('reason').notNull(),
+  createdAt: timestamptz('created_at').notNull().defaultNow(),
+});

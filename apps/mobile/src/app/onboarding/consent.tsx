@@ -9,11 +9,13 @@ import {
   ErrorText,
   Eyebrow,
   Heading,
+  Pressy,
   Rise,
   Screen,
   Title,
 } from '../../components/ui';
 import { colors as c } from '../../lib/theme';
+import { track } from '../../lib/analytics';
 import { useApi } from '../../lib/api';
 
 /**
@@ -22,6 +24,7 @@ import { useApi } from '../../lib/api';
  */
 export default function AiConsent() {
   const call = useApi();
+  const [adult, setAdult] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -30,8 +33,9 @@ export default function AiConsent() {
     try {
       await call('/me/ai-consent', {
         method: 'POST',
-        body: JSON.stringify({ version: AI_CONSENT_VERSION }),
+        body: JSON.stringify({ version: AI_CONSENT_VERSION, adult: true }),
       });
+      track('ai_consent_given');
       router.replace('/');
     } catch {
       setError('Something went wrong. Please try again.');
@@ -44,7 +48,19 @@ export default function AiConsent() {
       footer={
         <>
           <ErrorText>{error}</ErrorText>
-          <Button title="I agree, let's go" onPress={agree} busy={busy} />
+          <Pressy
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: adult }}
+            haptic="tick"
+            onPress={() => setAdult(!adult)}
+            style={styles.adult}
+          >
+            <View style={[styles.box, adult && styles.boxOn]}>
+              {adult && <Text style={styles.boxMark}>✓</Text>}
+            </View>
+            <Body style={{ flex: 1 }}>I'm 18 or older.</Body>
+          </Pressy>
+          <Button title="I agree, let's go" onPress={agree} busy={busy} disabled={!adult} />
         </>
       }
     >
@@ -106,4 +122,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tickMark: { color: c.accent, fontSize: 12, fontWeight: '900' },
+  adult: { flexDirection: 'row', gap: 12, alignItems: 'center', paddingVertical: 6 },
+  box: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: c.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boxOn: { backgroundColor: c.accent, borderColor: c.accent },
+  boxMark: { color: c.onAccent, fontSize: 14, fontWeight: '900' },
 });

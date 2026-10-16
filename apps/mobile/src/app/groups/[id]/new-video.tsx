@@ -22,6 +22,7 @@ import {
   Screen,
   Title,
 } from '../../../components/ui';
+import { track } from '../../../lib/analytics';
 import { ApiError, useApi, useResource } from '../../../lib/api';
 import { STYLE_LABELS } from '../../../lib/styles';
 import { colors as c, type } from '../../../lib/theme';
@@ -58,6 +59,7 @@ export default function NewVideo() {
         method: 'POST',
         body: JSON.stringify({ groupId: id, inputText: text, style, castMemberIds: cast }),
       });
+      track('video_started', { style: style!, cast: cast.length });
       router.replace(`/videos/${video.id}`);
     } catch (e) {
       setError(

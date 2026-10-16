@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server';
+import * as Sentry from '@sentry/node';
 import { createApp } from './app.ts';
 import { clerkVerifyToken } from './auth.ts';
 import { createDb, runMigrations } from '@insidejoke/db';
@@ -9,6 +10,8 @@ function required(name: string): string {
   if (!value) throw new Error(`${name} is required`);
   return value;
 }
+
+if (process.env.SENTRY_DSN) Sentry.init({ dsn: process.env.SENTRY_DSN });
 
 const port = Number(process.env.PORT ?? 3000);
 const db = createDb(required('DATABASE_URL'));
@@ -23,6 +26,7 @@ const app = createApp(db, {
     secretAccessKey: required('R2_SECRET_ACCESS_KEY'),
   }),
   publicUrl: required('PUBLIC_URL').replace(/\/$/, ''),
+  revenueCatWebhookAuth: required('REVENUECAT_WEBHOOK_AUTH'),
 });
 serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, (info) => {
   console.log(`api listening on :${info.port}`);

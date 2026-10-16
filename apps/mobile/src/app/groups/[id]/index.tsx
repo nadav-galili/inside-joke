@@ -22,6 +22,7 @@ import {
   Screen,
   Title,
 } from '../../../components/ui';
+import { track } from '../../../lib/analytics';
 import { useApi, useResource } from '../../../lib/api';
 import { isInProgress, STATUS_LABELS, STYLE_LABELS } from '../../../lib/styles';
 import { colors as c, type } from '../../../lib/theme';
@@ -51,6 +52,7 @@ export default function Group() {
   const castable = g.members.filter((m) => m.hasFace);
 
   function invite() {
+    track('invite_shared');
     void Share.share({
       message: `Star in our ${g.name} videos on Inside Joke! Add your selfie here: ${g.inviteUrl}`,
     });

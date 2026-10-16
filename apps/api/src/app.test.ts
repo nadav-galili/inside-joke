@@ -3,6 +3,7 @@ import {
   faces,
   generationJobs,
   members,
+  reports,
   runMigrations,
   users,
   videos,
@@ -54,7 +55,12 @@ describe.skipIf(!testDbUrl)('api', () => {
     db = createDb(url.toString());
     await runMigrations(db);
     // The test token is the Clerk user id itself.
-    app = createApp(db, { verifyToken: async (t) => t, storage, publicUrl: 'https://api.test' });
+    app = createApp(db, {
+      verifyToken: async (t) => t,
+      storage,
+      publicUrl: 'https://api.test',
+      revenueCatWebhookAuth: 'Bearer rc-secret',
+    });
   });
 
   /** A client signed in as a brand-new Clerk user. */
@@ -98,6 +104,7 @@ describe.skipIf(!testDbUrl)('api', () => {
         key: target.key,
         consentTextVersion: FACE_CONSENT_VERSION,
         aiConsentVersion: AI_CONSENT_VERSION,
+        adult: true,
       }),
     });
     return { status: res.status, body: (await res.json()) as { manageUrl: string } };
@@ -106,7 +113,7 @@ describe.skipIf(!testDbUrl)('api', () => {
   /** A signed-in creator with a selfie, AI consent and a group of three with faces. */
   async function readyGroup() {
     const me = client();
-    await me.call('POST', '/me/ai-consent', { version: AI_CONSENT_VERSION });
+    await me.call('POST', '/me/ai-consent', { version: AI_CONSENT_VERSION, adult: true });
     await uploadSelfie(me.call);
     const { body: group } = await me.call('POST', '/groups', { name: 'Poker', myName: 'Nadav' });
     await joinAsFriend(group.inviteUrl, 'Barvaz');
@@ -334,5 +341,74 @@ describe.skipIf(!testDbUrl)('api', () => {
     await me.call('DELETE', `/videos/${videoId}`);
     expect(objects.has(`videos/${videoId}.mp4`)).toBe(false);
     expect((await me.call('GET', `/videos/${videoId}`)).status).toBe(404);
+  });
+
+  it('needs the 18+ confirmation with AI consent', async () => {
+    const { call } = client();
+    const res = await call('POST', '/me/ai-consent', { version: AI_CONSENT_VERSION });
+    expect(res.status).toBe(400);
+  });
+
+  /** Posts a RevenueCat webhook event. */
+  async function webhook(event: Record<string, unknown>, auth = 'Bearer rc-secret') {
+    const res = await app.request('/webhooks/revenuecat', {
+      method: 'POST',
+      headers: { authorization: auth, 'content-type': 'application/json' },
+      body: JSON.stringify({ api_version: '1.0', event }),
+    });
+    return res.status;
+  }
+
+  it('turns each bought video into one credit, however often RevenueCat retries', async () => {
+    const me = client();
+    const { body } = await me.call('GET', '/me');
+    const purchase = {
+      type: 'NON_RENEWING_PURCHASE',
+      app_user_id: (body as Me).id,
+      product_id: 'video_15s',
+      transaction_id: crypto.randomUUID(),
+    };
+    expect(await webhook(purchase)).toBe(200);
+    expect(await webhook(purchase)).toBe(200);
+    expect(((await me.call('GET', '/me')).body as Me).videoCredits).toBe(1);
+
+    expect(await webhook({ ...purchase, transaction_id: crypto.randomUUID() }, 'Bearer nope')).toBe(
+      401,
+    );
+    expect(
+      await webhook({ ...purchase, transaction_id: crypto.randomUUID(), product_id: 'other' }),
+    ).toBe(200);
+    expect(((await me.call('GET', '/me')).body as Me).videoCredits).toBe(1);
+
+    await webhook({ ...purchase, type: 'CANCELLATION', cancel_reason: 'CUSTOMER_SUPPORT' });
+    expect(((await me.call('GET', '/me')).body as Me).videoCredits).toBe(0);
+  });
+
+  it('lets a friend in a video take it down from their manage link', async () => {
+    const me = client();
+    await me.call('POST', '/me/ai-consent', { version: AI_CONSENT_VERSION, adult: true });
+    await uploadSelfie(me.call);
+    const { body: group } = await me.call('POST', '/groups', { name: 'G', myName: 'Me' });
+    const { body: joined } = await joinAsFriend(group.inviteUrl, 'Ziv');
+    const { body: detail } = await me.call('GET', `/groups/${group.id}`);
+    const { body: video } = await me.call('POST', '/videos', {
+      groupId: group.id,
+      inputText: 'hi',
+      style: 'telenovela',
+      castMemberIds: (detail as GroupDetail).members.map((m) => m.id),
+    });
+    const key = `videos/${video.id}.mp4`;
+    objects.add(key);
+    await db.update(videos).set({ status: 'ready', r2Key: key }).where(eq(videos.id, video.id));
+
+    const path = new URL(joined.manageUrl).pathname;
+    expect(await (await app.request(path)).text()).toContain('Remove this video');
+    const res = await app.request(`${path}/videos/${video.id}/remove`, { method: 'POST' });
+    expect(res.status).toBe(303);
+    const [after] = await db.select().from(videos).where(eq(videos.id, video.id));
+    expect(after!.status).toBe('deleted');
+    expect(objects.has(key)).toBe(false);
+    const logged = await db.select().from(reports).where(eq(reports.videoId, video.id));
+    expect(logged).toHaveLength(1);
   });
 });

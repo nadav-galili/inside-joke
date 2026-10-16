@@ -1,4 +1,5 @@
 import { ClerkProvider, useAuth } from '@clerk/expo';
+import * as Sentry from '@sentry/react-native';
 import { tokenCache } from '@clerk/expo/token-cache';
 import {
   BricolageGrotesque_500Medium,
@@ -15,6 +16,12 @@ import { Loading } from '../components/ui';
 import { colors as c, fonts } from '../lib/theme';
 
 void SplashScreen.preventAutoHideAsync();
+
+// Crash reporting when a DSN is set; local builds without one report nothing.
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
+});
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 if (!publishableKey) throw new Error('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is required');
@@ -59,7 +66,7 @@ function Routes() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
     BricolageGrotesque_500Medium,
     BricolageGrotesque_700Bold,
@@ -80,3 +87,5 @@ export default function RootLayout() {
     </ClerkProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);

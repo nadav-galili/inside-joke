@@ -1,6 +1,6 @@
 import { VIDEO_STYLES, type GroupSummary, type Me, type VideoStyle } from '@insidejoke/shared';
 import { Link, Redirect, router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { GenrePoster } from '../components/cinema';
 import {
@@ -15,7 +15,9 @@ import {
   Screen,
   Title,
 } from '../components/ui';
+import { identify } from '../lib/analytics';
 import { useResource } from '../lib/api';
+import { configurePurchases } from '../lib/purchases';
 import { usePushNotifications } from '../lib/push';
 import { colors as c, type } from '../lib/theme';
 
@@ -25,6 +27,12 @@ export default function Home() {
   const groups = useResource<GroupSummary[]>('/groups');
   const onboarded = !!me.data?.aiConsented && !!me.data?.hasSelfie;
   usePushNotifications(onboarded);
+  const userId = me.data?.id;
+  useEffect(() => {
+    if (!userId) return;
+    identify(userId);
+    configurePurchases(userId);
+  }, [userId]);
 
   const { reload: reloadMe } = me;
   const { reload: reloadGroups } = groups;

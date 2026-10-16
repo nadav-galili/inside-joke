@@ -3,7 +3,7 @@ import { File, Paths } from 'expo-file-system';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   Curtain,
@@ -24,7 +24,9 @@ import {
   Screen,
   Title,
 } from '../../components/ui';
+import { track } from '../../lib/analytics';
 import { useApi, useResource } from '../../lib/api';
+import { buyVideo, videoPrice } from '../../lib/purchases';
 import { isInProgress, STATUS_LABELS, STYLE_LABELS } from '../../lib/styles';
 import { colors as c, radius } from '../../lib/theme';
 
@@ -169,6 +171,10 @@ function ScriptReview({
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState<'approve' | 'regenerate' | null>(null);
   const [error, setError] = useState('');
+  const [storePrice, setStorePrice] = useState<string | null>(null);
+  useEffect(() => {
+    void videoPrice().then(setStorePrice);
+  }, []);
   const roles = new Map(draft.cast.map((r) => [r.role, r.memberId]));
   const names = new Map(video.cast.map((m) => [m.memberId, m.displayName]));
   const speaker = (b: Beat) =>
@@ -195,13 +201,25 @@ function ScriptReview({
         );
         setDirty(false);
       }
-      const result = await call<ApproveResult>(`/videos/${video.id}/approve`, { method: 'POST' });
+      const approveOnce = () =>
+        call<ApproveResult>(`/videos/${video.id}/approve`, { method: 'POST' });
+      let result = await approveOnce();
       if ('error' in result) {
-        // In-app purchase arrives with payments; until then only the free video and credits work.
-        Alert.alert('Buying videos is coming soon', 'Your free video is already used.');
-      } else {
-        await reload();
+        // No free video or credit left: buy one through Apple, then approve with it.
+        const bought = await buyVideo(() => call<Me>('/me'));
+        if (bought === 'cancelled') return;
+        if (bought === 'pending') {
+          Alert.alert(
+            'Payment received',
+            "Your video credit is on its way. Tap Roll camera again in a moment; you won't be charged twice.",
+          );
+          return;
+        }
+        result = await approveOnce();
       }
+      if ('error' in result) throw new Error('approve failed after purchase');
+      track('script_approved', { paidWith: result.paidWith });
+      await reload();
     } catch {
       setError('Something went wrong. Please try again.');
     } finally {
@@ -213,6 +231,7 @@ function ScriptReview({
     setBusy('regenerate');
     try {
       await call(`/videos/${video.id}/regenerate`, { method: 'POST' });
+      track('script_regenerated');
       await reload();
     } catch {
       setError("We couldn't write a new script.");
@@ -227,7 +246,7 @@ function ScriptReview({
       ? { price: 'Free', caption: 'Your first video' }
       : me.data.videoCredits > 0
         ? { price: '1 credit', caption: 'Admit one · 15 sec' }
-        : { price: '$4.99', caption: 'Admit one · 15 sec' };
+        : { price: storePrice ?? '$4.99', caption: 'Admit one · 15 sec' };
 
   return (
     <Screen
@@ -346,6 +365,9 @@ function Player({ video }: { video: VideoDetail }) {
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  useEffect(() => {
+    track('video_watched');
+  }, []);
 
   async function share() {
     setBusy(true);
@@ -354,6 +376,7 @@ function Player({ video }: { video: VideoDetail }) {
       const file = new File(Paths.cache, `inside-joke-${video.id}.mp4`);
       if (!file.exists) await File.downloadFileAsync(video.playUrl!, file);
       await Sharing.shareAsync(file.uri, { mimeType: 'video/mp4', UTI: 'public.mpeg-4' });
+      track('video_shared');
     } catch {
       setError("We couldn't share the video. Please try again.");
     } finally {

@@ -1,4 +1,10 @@
-import { aiConsentSchema, pushTokenSchema, recordSelfieSchema, type Me } from '@insidejoke/shared';
+import {
+  AI_CONSENT_VERSION,
+  aiConsentSchema,
+  pushTokenSchema,
+  recordSelfieSchema,
+  type Me,
+} from '@insidejoke/shared';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { AuthVariables } from './auth.ts';
@@ -24,7 +30,8 @@ export function meRoutes(db: Db, storage: Storage) {
     const user = await currentUser(db, c.get('clerkUserId'));
     const me: Me = {
       id: user.id,
-      aiConsented: user.aiConsentVersion !== null,
+      // An older consent doesn't count: the app asks again whenever the text changes.
+      aiConsented: user.aiConsentVersion === AI_CONSENT_VERSION,
       hasSelfie: user.selfieKey !== null,
       selfieUrl: user.selfieKey ? await storage.readUrl(user.selfieKey) : null,
       freeVideoUsed: user.freeVideoUsed,

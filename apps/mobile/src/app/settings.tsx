@@ -14,6 +14,7 @@ import {
   Rise,
   Screen,
 } from '../components/ui';
+import { resetAnalytics } from '../lib/analytics';
 import { useApi, useResource } from '../lib/api';
 import { colors as c } from '../lib/theme';
 
@@ -84,7 +85,14 @@ export default function Settings() {
           {me.data.hasSelfie && (
             <Button title="Remove my face" kind="danger" onPress={removeFace} busy={busy} />
           )}
-          <Button title="Sign out" kind="quiet" onPress={() => void signOut()} />
+          <Button
+            title="Sign out"
+            kind="quiet"
+            onPress={() => {
+              resetAnalytics();
+              void signOut();
+            }}
+          />
         </View>
       </Rise>
     </Screen>

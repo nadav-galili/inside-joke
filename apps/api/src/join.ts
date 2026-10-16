@@ -6,10 +6,10 @@ import {
   joinGroupSchema,
   MAX_DISPLAY_NAME,
 } from '@insidejoke/shared';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { html, raw } from 'hono/html';
-import { faces, groups, members, type Db } from '@insidejoke/db';
+import { faces, groups, members, reports, videoCast, videos, type Db } from '@insidejoke/db';
 import { joinSelfiePrefix, newSelfieKey, type Storage } from './storage.ts';
 
 const newManageToken = () =>
@@ -182,6 +182,32 @@ const page = (title: string, body: ReturnType<typeof html>) =>
           button:active {
             transform: scale(0.98);
           }
+          button.secondary {
+            margin-top: 12px;
+            padding: 13px;
+            font-size: 15px;
+            color: var(--cream);
+            background: transparent;
+            border: 1px solid var(--line);
+            box-shadow: none;
+          }
+          h2 {
+            font: 800 22px/1.1 var(--display);
+            letter-spacing: -0.02em;
+            margin: 40px 0 8px;
+          }
+          ul.videos {
+            list-style: none;
+            padding: 0;
+            margin: 16px 0 0;
+            display: grid;
+            gap: 12px;
+          }
+          ul.videos li {
+            background: var(--card);
+            border-radius: 18px;
+            padding: 16px;
+          }
           button:disabled {
             opacity: 0.5;
           }
@@ -269,6 +295,9 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
                 </ul></span
               ></label
             >
+            <label class="check"
+              ><input id="adult" type="checkbox" required /> <span>I'm 18 or older.</span></label
+            >
             <button id="go" type="submit">Join the cast</button>
             <p id="err" class="error"></p>
           </form>
@@ -277,7 +306,10 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
             <h1>See you on screen</h1>
             <p class="muted">You can now star in ${group.name}'s videos.</p>
             <p class="card">
-              Keep this link to remove your face at any time:<br /><a id="manage" href="#"></a>
+              Keep this link. It lets you remove your face, or any video you're in, at any time:<br /><a
+                id="manage"
+                href="#"
+              ></a>
             </p>
           </div>
           <script>
@@ -328,28 +360,91 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
     return row;
   }
 
+  /** Videos this member is in that still exist, newest first. */
+  async function videosOf(memberId: string) {
+    return db
+      .select({
+        id: videos.id,
+        script: videos.script,
+        r2Key: videos.r2Key,
+        createdAt: videos.createdAt,
+      })
+      .from(videoCast)
+      .innerJoin(videos, eq(videos.id, videoCast.videoId))
+      .where(
+        and(
+          eq(videoCast.memberId, memberId),
+          inArray(videos.status, ['script_ready', 'paid', 'generating', 'ready']),
+        ),
+      )
+      .orderBy(desc(videos.createdAt));
+  }
+
   app.get('/m/:token', async (c) => {
-    const row = await memberByToken(c.req.param('token'));
+    const token = c.req.param('token');
+    const row = await memberByToken(token);
     if (!row) return c.html(page('Not found', html`<h1>This link isn't valid.</h1>`), 404);
     const [face] = await db
       .select()
       .from(faces)
       .where(and(eq(faces.memberId, row.member.id), isNull(faces.revokedAt)));
+    const list = await videosOf(row.member.id);
+    const videoList = list.map(
+      (v) =>
+        html`<li>
+          ${v.script?.title ?? 'Untitled video'}, ${v.createdAt.toISOString().slice(0, 10)}
+          <form method="post" action="/m/${token}/videos/${v.id}/remove">
+            <button type="submit" class="secondary">Remove this video</button>
+          </form>
+        </li>`,
+    );
     return c.html(
       page(
         'Your face in Inside Joke',
-        face
-          ? html`<p class="eyebrow">Your face</p>
-              <h1>${row.member.displayName} in ${row.groupName}</h1>
-              <p class="muted">Your selfie can be used in this group's new videos.</p>
-              <form method="post" action="/m/${c.req.param('token')}/remove">
-                <button type="submit">Remove my face</button>
-              </form>`
-          : html`<p class="eyebrow">Your face</p>
-              <h1>Your face is removed</h1>
-              <p class="muted">Nobody in ${row.groupName} can use it in a new video.</p>`,
+        html`${
+          face
+            ? html`<p class="eyebrow">Your face</p>
+                <h1>${row.member.displayName} in ${row.groupName}</h1>
+                <p class="muted">Your selfie can be used in this group's new videos.</p>
+                <form method="post" action="/m/${token}/remove">
+                  <button type="submit" class="secondary">Remove my face</button>
+                </form>`
+            : html`<p class="eyebrow">Your face</p>
+                <h1>Your face is removed</h1>
+                <p class="muted">Nobody in ${row.groupName} can use it in a new video.</p>`
+        }
+        ${
+          list.length > 0
+            ? html`<h2>Videos you're in</h2>
+                <p class="muted">Removing a video deletes it for everyone, at once.</p>
+                <ul class="videos">
+                  ${videoList}
+                </ul>`
+            : ''
+        }`,
       ),
     );
+  });
+
+  /** A cast member takes a video they're in down. It is deleted at once and the request logged. */
+  app.post('/m/:token/videos/:videoId/remove', async (c) => {
+    const token = c.req.param('token');
+    const row = await memberByToken(token);
+    if (!row) return c.json({ error: 'not_found' }, 404);
+    const mine = await videosOf(row.member.id);
+    const video = mine.find((v) => v.id === c.req.param('videoId'));
+    if (!video) return c.redirect(`/m/${token}`, 303);
+    await db.transaction(async (tx) => {
+      await tx
+        .insert(reports)
+        .values({ videoId: video.id, memberId: row.member.id, reason: 'cast_member_removal' });
+      await tx
+        .update(videos)
+        .set({ status: 'deleted', inputText: null, r2Key: null })
+        .where(eq(videos.id, video.id));
+    });
+    if (video.r2Key) await storage.remove(video.r2Key);
+    return c.redirect(`/m/${token}`, 303);
   });
 
   /** Withdraws consent: the selfie is deleted and the member can't be cast again. */
@@ -404,6 +499,7 @@ $('f').addEventListener('submit', async (e) => {
         key: target.key,
         consentTextVersion: ${JSON.stringify(FACE_CONSENT_VERSION)},
         aiConsentVersion: ${JSON.stringify(AI_CONSENT_VERSION)},
+        adult: true,
       }),
     });
     if (!res.ok) throw new Error('join');

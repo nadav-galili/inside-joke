@@ -7,6 +7,8 @@ import { buildAss } from './subtitles.ts';
 /** The font for subtitles and the watermark; it must cover Hebrew. Installed in the worker image. */
 export const FONT = process.env.SUBTITLE_FONT ?? 'DejaVu Sans';
 const WATERMARK_TEXT = 'Made with Inside Joke';
+/** Every video says it's AI-made, paid or not (build plan, safety). */
+const AI_LABEL = 'AI-generated';
 
 function run(cmd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -45,7 +47,7 @@ function filterValue(value: string): string {
 }
 
 /**
- * Burns the subtitles in and, for a free video, a watermark in the top corner. Audio is copied
+ * Burns the subtitles and the AI label in and, for a free video, a watermark in the top corner. Audio is copied
  * untouched; the output starts playing before it has fully downloaded (`+faststart`).
  */
 export async function renderFinal(opts: {
@@ -59,7 +61,11 @@ export async function renderFinal(opts: {
   const size = await videoSize(opts.input);
   const assPath = path.join(opts.workDir, 'subtitles.ass');
   await writeFile(assPath, buildAss(opts.beats, opts.subtitleLanguage, size, FONT));
-  const filters = [`subtitles=${filterValue(assPath)}`];
+  const labelSize = Math.round(size.width * 0.03);
+  const filters = [
+    `subtitles=${filterValue(assPath)}`,
+    `drawtext=font=${filterValue(FONT)}:text=${filterValue(AI_LABEL)}:fontsize=${labelSize}:fontcolor=white@0.8:borderw=2:bordercolor=black@0.6:x=${labelSize}:y=${labelSize}`,
+  ];
   if (opts.watermark) {
     const fontSize = Math.round(size.width * 0.04);
     filters.push(
@@ -88,4 +94,40 @@ export async function renderFinal(opts: {
     '+faststart',
     opts.output,
   ]);
+}
+
+/** Saves `count` evenly spaced frames of a video as small JPEGs, for the moderation check. */
+export async function extractFrames(file: string, workDir: string, count = 4): Promise<string[]> {
+  const out = await run('ffprobe', [
+    '-v',
+    'error',
+    '-show_entries',
+    'format=duration',
+    '-of',
+    'csv=p=0',
+    file,
+  ]);
+  const duration = Number(out.trim());
+  if (!duration) throw new Error(`could not read the duration of ${file}`);
+  const frames: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const at = (duration * (i + 0.5)) / count;
+    const frame = path.join(workDir, `frame-${i}.jpg`);
+    await run('ffmpeg', [
+      '-y',
+      '-v',
+      'error',
+      '-ss',
+      at.toFixed(2),
+      '-i',
+      file,
+      '-frames:v',
+      '1',
+      '-vf',
+      'scale=-2:512',
+      frame,
+    ]);
+    frames.push(frame);
+  }
+  return frames;
 }

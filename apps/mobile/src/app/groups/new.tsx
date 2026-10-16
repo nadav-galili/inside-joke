@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { Body, Button, ErrorText, Eyebrow, Field, Screen, Title } from '../../components/ui';
+import { track } from '../../lib/analytics';
 import { useApi } from '../../lib/api';
 
 export default function NewGroup() {
@@ -19,6 +20,7 @@ export default function NewGroup() {
         method: 'POST',
         body: JSON.stringify({ name, myName }),
       });
+      track('group_created');
       router.replace(`/groups/${group.id}`);
     } catch {
       setError("We couldn't create the group. Please try again.");

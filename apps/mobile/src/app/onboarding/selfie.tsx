@@ -13,6 +13,7 @@ import {
   Screen,
   Title,
 } from '../../components/ui';
+import { track } from '../../lib/analytics';
 import { useApi } from '../../lib/api';
 import { takeSelfie, uploadSelfie } from '../../lib/selfie';
 import { colors as c, radius, type } from '../../lib/theme';
@@ -44,6 +45,7 @@ export default function Selfie() {
         method: 'POST',
         body: JSON.stringify({ key: target.key, consentTextVersion: FACE_CONSENT_VERSION }),
       });
+      track('selfie_added');
       if (router.canGoBack()) router.back();
       else router.replace('/');
     } catch {
