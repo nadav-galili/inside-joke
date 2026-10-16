@@ -63,6 +63,7 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
       },
     };
     const requests: VideoRequest[] = [];
+    const moderated: string[] = [];
     // The script casts the second member first, to prove Image 1 follows the script's order.
     const script = sampleScript([cast[1]!, cast[0]!]);
     const steps = createSteps(db, {
@@ -80,6 +81,10 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
         };
       },
       storage,
+      moderate: async (frames) => {
+        moderated.push(...frames);
+        return { safe: true, reason: 'fine', costUsd: 0.01, model: 'test-mod' };
+      },
       download: async (_url, file) => copyFile(rawVideo, file),
     });
 
@@ -102,7 +107,8 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
     [row] = await db.select().from(videos).where(eq(videos.id, video.id));
     expect(row!.status).toBe('ready');
     expect(row!.r2Key).toBe(`videos/${video.id}.mp4`);
-    expect(Number(row!.costUsd)).toBeCloseTo(0.8);
+    expect(Number(row!.costUsd)).toBeCloseTo(0.81);
+    expect(moderated).toHaveLength(4);
     const final = uploaded.get(`videos/${video.id}.mp4`)!;
     expect(await videoSize(final)).toEqual({ width: 432, height: 768 });
   });
@@ -124,11 +130,49 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
         throw new Error('should not be called');
       },
       storage: { readUrl: async (k) => k, uploadFile: async () => {} },
+      moderate: async () => ({ safe: true, reason: '', costUsd: 0, model: 'm' }),
     });
     await db.insert(generationJobs).values({ videoId: video.id, step: 'video' });
     await runJob(db, (await claimNextJob(db))!, steps);
     const [row] = await db.select().from(videos).where(eq(videos.id, video.id));
     expect(called).toBe(false);
     expect(row!.status).toBe('failed');
+  });
+
+  it('never delivers a video that fails moderation', async () => {
+    const { video, cast } = await seedVideo(db);
+    await db
+      .update(videos)
+      .set({ script: sampleScript(cast), status: 'generating' })
+      .where(eq(videos.id, video.id));
+    await db.insert(generationJobs).values({
+      videoId: video.id,
+      step: 'video',
+      status: 'done',
+      output: { videoUrl: 'https://fal.test/v.mp4' },
+    });
+    let uploaded = false;
+    const steps = createSteps(db, {
+      writeScript: async () => {
+        throw new Error('unused');
+      },
+      generateVideo: async () => {
+        throw new Error('unused');
+      },
+      storage: {
+        readUrl: async (k) => k,
+        uploadFile: async () => {
+          uploaded = true;
+        },
+      },
+      moderate: async () => ({ safe: false, reason: 'gore', costUsd: 0.01, model: 'm' }),
+      download: async (_url, file) => copyFile(rawVideo, file),
+    });
+    await db.insert(generationJobs).values({ videoId: video.id, step: 'finish' });
+    await runJob(db, (await claimNextJob(db))!, steps);
+    const [row] = await db.select().from(videos).where(eq(videos.id, video.id));
+    expect(uploaded).toBe(false);
+    expect(row!.status).toBe('failed');
+    expect(await claimNextJob(db)).toBeNull();
   });
 });

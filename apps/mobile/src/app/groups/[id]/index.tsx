@@ -3,6 +3,7 @@ import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router
 import { useCallback } from 'react';
 import { Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Body, Button, Card, Loading, Screen } from '../../../components/ui';
+import { track } from '../../../lib/analytics';
 import { useApi, useResource } from '../../../lib/api';
 import { isInProgress, STATUS_LABELS, STYLE_LABELS } from '../../../lib/styles';
 import { useColors } from '../../../lib/theme';
@@ -30,6 +31,7 @@ export default function Group() {
   const castable = g.members.filter((m) => m.hasFace);
 
   function invite() {
+    track('invite_shared');
     void Share.share({
       message: `Star in our ${g.name} videos on Inside Joke! Add your selfie here: ${g.inviteUrl}`,
     });

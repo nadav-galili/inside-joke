@@ -1,9 +1,16 @@
 import { ClerkProvider, useAuth } from '@clerk/expo';
+import * as Sentry from '@sentry/react-native';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Loading } from '../components/ui';
 import { useColors } from '../lib/theme';
+
+// Crash reporting when a DSN is set; local builds without one report nothing.
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
+  enabled: !!process.env.EXPO_PUBLIC_SENTRY_DSN,
+});
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 if (!publishableKey) throw new Error('EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY is required');
@@ -39,7 +46,7 @@ function Routes() {
   );
 }
 
-export default function RootLayout() {
+function RootLayout() {
   return (
     <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
       <StatusBar style="auto" />
@@ -47,3 +54,5 @@ export default function RootLayout() {
     </ClerkProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);

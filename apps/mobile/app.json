@@ -32,7 +32,8 @@
           "microphonePermission": false
         }
       ],
-      "expo-video"
+      "expo-video",
+      "@sentry/react-native/expo"
     ],
     "experiments": {
       "typedRoutes": true

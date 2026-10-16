@@ -1,6 +1,8 @@
 import { createDb } from '@insidejoke/db';
+import * as Sentry from '@sentry/node';
 import { claimNextJob } from './claim.ts';
 import { expoNotify } from './notify.ts';
+import { claudeModerator } from './providers/moderator.ts';
 import { claudeScriptWriter } from './providers/script-writer.ts';
 import { falVideoGenerator } from './providers/video-generator.ts';
 import { runJob } from './run-job.ts';
@@ -13,12 +15,15 @@ function required(name: string): string {
   return value;
 }
 
+if (process.env.SENTRY_DSN) Sentry.init({ dsn: process.env.SENTRY_DSN });
+
 const db = createDb(required('DATABASE_URL'));
 // The Anthropic client reads ANTHROPIC_API_KEY itself; fail at start rather than on the first job.
 required('ANTHROPIC_API_KEY');
 const steps = createSteps(db, {
   writeScript: claudeScriptWriter(),
   generateVideo: falVideoGenerator(required('FAL_KEY')),
+  moderate: claudeModerator(),
   storage: r2Storage({
     accountId: required('R2_ACCOUNT_ID'),
     bucket: required('R2_BUCKET'),

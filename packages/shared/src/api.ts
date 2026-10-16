@@ -6,17 +6,24 @@ import { scriptSchema, type Script, type VideoStatus, type VideoStyle } from './
  * device (App Store guideline 5.1.2(i)). Change the version whenever this text changes.
  */
 export const AI_PROVIDERS = [
-  { name: 'Anthropic (Claude)', receives: 'the chat text you paste, to write the script' },
+  {
+    name: 'Anthropic (Claude)',
+    receives:
+      'the chat text you paste, to write the script, and a few frames of the finished video, to check it is safe before delivery',
+  },
   { name: 'fal (MiniMax video model)', receives: 'the selfies of the cast, to make the video' },
 ] as const;
-export const AI_CONSENT_VERSION = 'ai-v1';
+export const AI_CONSENT_VERSION = 'ai-v2';
 
 /** What someone agrees to when they add their own selfie. Stored with every face. */
-export const FACE_CONSENT_VERSION = 'face-v1';
+export const FACE_CONSENT_VERSION = 'face-v2';
 export const FACE_CONSENT_TEXT =
   "This is a photo of me, taken by me. I agree that my group's members can put my face in " +
-  'AI-generated comedy videos made with Inside Joke, and that my photo is sent to fal to make ' +
-  'them. I can remove my face at any time, and nobody can then use it in a new video.';
+  'AI-generated comedy videos made with Inside Joke, that my photo is sent to fal to make them, ' +
+  'and that frames of those videos are sent to Anthropic for a safety check. I can remove my face at any time, and nobody can then use it in a new video.';
+
+/** The App Store consumable for one video, sold through RevenueCat. */
+export const VIDEO_PRODUCT_ID = 'video_15s';
 
 export const MAX_GROUP_NAME = 60;
 export const MAX_DISPLAY_NAME = 40;
@@ -40,9 +47,15 @@ export const joinGroupSchema = z.object({
   key: z.string().min(1),
   consentTextVersion: z.literal(FACE_CONSENT_VERSION),
   aiConsentVersion: z.literal(AI_CONSENT_VERSION),
+  /** The app is 18+; friends confirm it on the invite page. */
+  adult: z.literal(true),
 });
 
-export const aiConsentSchema = z.object({ version: z.literal(AI_CONSENT_VERSION) });
+/** AI data consent, given with the 18+ age confirmation on the same screen. */
+export const aiConsentSchema = z.object({
+  version: z.literal(AI_CONSENT_VERSION),
+  adult: z.literal(true),
+});
 export const pushTokenSchema = z.object({ token: z.string().min(1).max(200) });
 export const updateScriptSchema = z.object({ script: scriptSchema });
 

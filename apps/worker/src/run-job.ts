@@ -1,8 +1,14 @@
+import * as Sentry from '@sentry/node';
 import { generationJobs, users, videos, type Db } from '@insidejoke/db';
 import { and, eq, ne, sql } from 'drizzle-orm';
 import type { ClaimedJob } from './claim.ts';
 import { ScriptRefusedError } from './providers/script-writer.ts';
-import { ConsentWithdrawnError, nextStep, type StepHandler } from './steps.ts';
+import {
+  ConsentWithdrawnError,
+  ModerationBlockedError,
+  nextStep,
+  type StepHandler,
+} from './steps.ts';
 
 export const MAX_ATTEMPTS = 3;
 /** Wait before a retry, doubling per attempt: 30s, 60s. */
@@ -10,7 +16,9 @@ const retryDelaySeconds = (attempts: number) => 30 * 2 ** (attempts - 1);
 
 /** Failures that retrying the same input can't fix. */
 const isPermanent = (e: unknown) =>
-  e instanceof ScriptRefusedError || e instanceof ConsentWithdrawnError;
+  e instanceof ScriptRefusedError ||
+  e instanceof ConsentWithdrawnError ||
+  e instanceof ModerationBlockedError;
 
 /** Tells the creator a paid video is ready or failed. Never throws. */
 export type Notify = (videoId: string, outcome: 'ready' | 'failed') => Promise<void>;
@@ -70,6 +78,7 @@ export async function runJob(
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error(`job ${job.id} (${job.step}) failed on attempt ${job.attempts}`, e);
+    Sentry.captureException(e, { tags: { step: job.step }, extra: { jobId: job.id } });
     const retry = job.attempts < MAX_ATTEMPTS && !isPermanent(e);
     await db
       .update(generationJobs)

@@ -6,9 +6,10 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ClaimedJob } from './claim.ts';
 import { buildVideoPrompt } from './prompt.ts';
+import type { Moderator } from './providers/moderator.ts';
 import type { ScriptWriter } from './providers/script-writer.ts';
 import type { VideoGenerator } from './providers/video-generator.ts';
-import { renderFinal } from './render.ts';
+import { extractFrames, renderFinal } from './render.ts';
 import { videoKey, type Storage } from './storage.ts';
 
 /** What a step reports back: its output, what it cost, and any change to the video row. */
@@ -27,6 +28,7 @@ export type StepDeps = {
   writeScript: ScriptWriter;
   generateVideo: VideoGenerator;
   storage: Storage;
+  moderate: Moderator;
   render?: typeof renderFinal;
   download?: (url: string, file: string) => Promise<void>;
 };
@@ -149,14 +151,30 @@ export function createSteps(db: Db, deps: StepDeps): Record<GenerationStep, Step
           subtitleLanguage: video.script.subtitleLanguage,
           watermark: video.watermarked,
         });
+        // Nothing is delivered before it's checked.
+        const verdict = await deps.moderate(await extractFrames(output, workDir));
+        if (!verdict.safe) throw new ModerationBlockedError(verdict.reason);
         const key = videoKey(video.id);
         await deps.storage.uploadFile(key, output, 'video/mp4');
-        return { output: { r2Key: key }, costUsd: 0, videoUpdate: { r2Key: key } };
+        return {
+          output: { r2Key: key, moderation: verdict.reason },
+          costUsd: verdict.costUsd,
+          provider: 'anthropic',
+          model: verdict.model,
+          videoUpdate: { r2Key: key },
+        };
       } finally {
         await rm(workDir, { recursive: true, force: true });
       }
     },
   };
+}
+
+/** The finished video failed the moderation check. It is never delivered, and a retry won't help. */
+export class ModerationBlockedError extends Error {
+  constructor(reason: string) {
+    super(`blocked by moderation: ${reason}`);
+  }
 }
 
 /** A cast member withdrew consent after the script was written. Retrying won't help. */
