@@ -10,7 +10,8 @@ import { joinRoutes } from './join.ts';
 import { clientIp, DEFAULT_RATE_LIMITS, rateLimit, type RateLimits } from './limits.ts';
 import type { Storage } from './storage.ts';
 import { revenueCatRoutes } from './revenuecat.ts';
-import { meRoutes } from './users.ts';
+import { legalRoutes } from './legal.ts';
+import { meRoutes, type DeleteAuthUser } from './users.ts';
 import { videoRoutes } from './videos.ts';
 
 export type AppDeps = {
@@ -23,6 +24,11 @@ export type AppDeps = {
   rateLimits?: RateLimits;
   /** Free videos all accounts together may start per day, so new sign-ups can't run up fal. */
   freeVideosPerDay?: number;
+  deleteAuthUser: DeleteAuthUser;
+  /** Shown on the support and privacy pages; App Store Connect links to them. */
+  supportEmail: string | undefined;
+  /** Who is responsible for the data, with a postal address, as the privacy policy must say. */
+  dataController: string | undefined;
 };
 
 /** Requests are small JSON: chat text is capped at a few thousand characters. */
@@ -61,6 +67,7 @@ export function createApp(db: Db, deps: AppDeps) {
   app.use('/join/*', perIp);
   app.use('/m/*', perIp);
   app.route('/', joinRoutes(db, deps.storage, deps.publicUrl));
+  app.route('/', legalRoutes(deps.supportEmail, deps.dataController));
 
   app.route('/webhooks/revenuecat', revenueCatRoutes(db, deps.revenueCatWebhookAuth));
 
@@ -70,7 +77,7 @@ export function createApp(db: Db, deps: AppDeps) {
   for (const path of ['/me/*', '/groups/*', '/videos/*']) {
     app.use(path, auth, perUser);
   }
-  app.route('/me', meRoutes(db, deps.storage));
+  app.route('/me', meRoutes(db, deps.storage, deps.deleteAuthUser));
   app.route('/groups', groupRoutes(db, deps.publicUrl));
   app.route(
     '/videos',

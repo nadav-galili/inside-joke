@@ -11,15 +11,15 @@ export const AI_PROVIDERS = [
     name: 'Anthropic (Claude)',
     credit: 'Writes and checks',
     receives:
-      'the chat text you paste, to write the script, and a few frames of the finished video, to check it is safe before delivery',
+      'the chat text you paste, to write the script and check it before filming, and a few frames of the finished video, to check it is safe before delivery',
   },
   {
     name: 'fal (MiniMax video model)',
     credit: 'Films',
-    receives: 'the selfies of the cast, to make the video',
+    receives: 'the selfies of the cast and the written scene, to make the video',
   },
 ] as const;
-export const AI_CONSENT_VERSION = 'ai-v2';
+export const AI_CONSENT_VERSION = 'ai-v3';
 
 /** What someone agrees to when they add their own selfie. Stored with every face. */
 export const FACE_CONSENT_VERSION = 'face-v2';
