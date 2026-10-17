@@ -55,6 +55,19 @@ comedy,meme,skit,roast,birthday,prank,sketch,movie,trailer,selfie,cast,starring,
 
 **What's New (first version)**: leave empty; it isn't shown for a first release.
 
+## Availability
+
+Version 1 launches **without the EU and the UK**. In App Store Connect, under Pricing and
+Availability, untick the United Kingdom and all 27 EU countries (Austria, Belgium, Bulgaria,
+Croatia, Cyprus, Czechia, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Ireland,
+Italy, Latvia, Lithuania, Luxembourg, Malta, Netherlands, Poland, Portugal, Romania, Slovakia,
+Slovenia, Spain, Sweden), and leave every other country ticked.
+
+Why: serving people there means naming a GDPR representative in the EU and another in the UK
+(Article 27, a paid service), and Apple's EU trader status publishes your address and phone number
+on the listing. Add the EU and the UK once the app earns enough to pay for the representatives
+and they are set up; no app change is needed.
+
 ## In-app purchase
 
 | Field | Value |
@@ -145,7 +158,9 @@ review).
 ## Before submitting
 
 - Set `SUPPORT_EMAIL` on the API service in Railway so the support and privacy pages show a
-  contact address.
+  contact address, and `DATA_CONTROLLER` (your name and postal address) so the privacy policy
+  names who is responsible for the data.
+- Check Pricing and Availability excludes the EU and the UK (see Availability above).
 - Open `<PUBLIC_URL>/privacy` and `<PUBLIC_URL>/support` once to check they load.
 - Screenshots: 6.9" iPhone (1320 × 2868), 3 to 10 of them. The genre picker, the script ticket and
   a finished video playing are the strongest three.
