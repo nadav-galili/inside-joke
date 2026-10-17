@@ -1,8 +1,9 @@
 import * as Sentry from '@sentry/node';
 import { generationJobs, users, videos, type Db } from '@insidejoke/db';
 import { and, eq, ne, sql } from 'drizzle-orm';
-import type { ClaimedJob } from './claim.ts';
+import { HEARTBEAT_MS, ownedByRun, touchJob, type ClaimedJob } from './claim.ts';
 import { ScriptRefusedError } from './providers/script-writer.ts';
+import { VideoRequestFailedError } from './providers/video-generator.ts';
 import {
   ConsentWithdrawnError,
   ModerationBlockedError,
@@ -11,10 +12,6 @@ import {
 } from './steps.ts';
 
 export const MAX_ATTEMPTS = 3;
-/** How often a running job is touched, so `requeueStaleJobs` can tell it from an orphan. */
-export const HEARTBEAT_MS = 30_000;
-/** A running job untouched this long lost its worker. A few missed heartbeats, to allow for lag. */
-export const STALE_AFTER_SECONDS = 120;
 /** Wait before a retry, doubling per attempt: 30s, 60s. */
 const retryDelaySeconds = (attempts: number) => 30 * 2 ** (attempts - 1);
 
@@ -45,22 +42,15 @@ export async function runJob(
       .where(eq(generationJobs.id, job.id));
     return;
   }
-  // This run owns the job only while the row is still running at this attempt. If a worker was
-  // presumed dead and its job requeued, the other run's late result must not count twice.
-  const mine = and(
-    eq(generationJobs.id, job.id),
-    eq(generationJobs.status, 'running'),
-    eq(generationJobs.attempts, job.attempts),
-  );
+  const mine = ownedByRun(job);
   const heartbeat = setInterval(() => {
-    db.update(generationJobs)
-      .set({ updatedAt: new Date() })
-      .where(mine)
-      .catch((e: unknown) => console.error(`heartbeat for job ${job.id} failed`, e));
+    touchJob(db, job).catch((e: unknown) => console.error(`heartbeat for job ${job.id} failed`, e));
   }, HEARTBEAT_MS);
   try {
-    // A job that keeps taking its worker down with it (each crash is an attempt) stops here.
-    if (job.attempts > MAX_ATTEMPTS) throw new Error(`gave up after ${job.attempts - 1} attempts`);
+    // A job that keeps taking its worker down with it (each crash is an attempt) stops here. One
+    // that holds a paid request gets one more go, to collect the take rather than refund it.
+    const limit = MAX_ATTEMPTS + (job.requestId ? 1 : 0);
+    if (job.attempts > limit) throw new Error(`gave up after ${job.attempts - 1} attempts`);
     const result = await handlers[job.step](job);
     const live = await db.transaction(async (tx) => {
       const owned = await tx
@@ -106,8 +96,9 @@ export async function runJob(
       .set({
         status: retry ? 'queued' : 'failed',
         error: message,
-        // A failed provider request isn't resumed: the retry starts a fresh one.
-        requestId: null,
+        // Only a request the provider says failed is dropped; any other error (a timeout, the
+        // network, the database) resumes the same paid request on the retry.
+        ...(e instanceof VideoRequestFailedError ? { requestId: null } : {}),
         runAfter: retry
           ? new Date(Date.now() + retryDelaySeconds(job.attempts) * 1000)
           : job.runAfter,

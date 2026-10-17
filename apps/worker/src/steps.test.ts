@@ -1,11 +1,11 @@
 import { faces, generationJobs, videos } from '@insidejoke/db';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { spawnSync } from 'node:child_process';
 import { copyFile, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { claimNextJob } from './claim.ts';
+import { claimNextJob, requeueStaleJobs, STALE_AFTER_SECONDS } from './claim.ts';
 import type { VideoRequest } from './providers/video-generator.ts';
 import { videoSize } from './render.ts';
 import { runJob } from './run-job.ts';
@@ -173,11 +173,12 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
     await expect(steps.video(first)).rejects.toThrow('worker stopped');
     expect(recorded).toBe('req_new');
 
-    // The reaper puts it back with its request; the next run waits on that take.
+    // The worker died: once the job looks stale, the reaper puts it back with its request.
     await db
       .update(generationJobs)
-      .set({ status: 'queued' })
+      .set({ updatedAt: sql`now() - interval '10 minutes'` })
       .where(eq(generationJobs.id, first.id));
+    expect(await requeueStaleJobs(db, STALE_AFTER_SECONDS)).toEqual([first.id]);
     await runJob(db, (await claimNextJob(db))!, steps);
     expect(requests.map((r) => r.resumeRequestId ?? null)).toEqual([null, 'req_new']);
     const [row] = await db.select().from(videos).where(eq(videos.id, video.id));

@@ -3,6 +3,7 @@ import { eq, sql } from 'drizzle-orm';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { claimNextJob, requeueStaleJobs } from './claim.ts';
 import { ScriptRefusedError } from './providers/script-writer.ts';
+import { VideoRequestFailedError } from './providers/video-generator.ts';
 import { MAX_ATTEMPTS, runJob, type Notify } from './run-job.ts';
 import type { StepHandler } from './steps.ts';
 import { clearJobs, seedVideo, testDb, testDbUrl } from './test/fixtures.ts';
@@ -165,21 +166,32 @@ describe.skipIf(!testDbUrl)('runJob', () => {
     expect(untouched!.status).toBe('running');
   });
 
-  it('starts a fresh provider request after a failure instead of resuming the failed one', async () => {
+  /** A video job holding a paid fal request that fails with `error` on this attempt. */
+  async function failHoldingRequest(error: Error) {
     const { video } = await seedVideo(db);
     await db.insert(generationJobs).values({ videoId: video.id, step: 'video' });
     const job = await claimFor(video.id);
     await db
       .update(generationJobs)
-      .set({ requestId: 'req_failed' })
+      .set({ requestId: 'req_paid' })
       .where(eq(generationJobs.id, job.id));
     const boom: StepHandler = async () => {
-      throw new Error('fal request failed');
+      throw error;
     };
-    await runJob(db, job, { ...handlers, video: boom });
+    await runJob(db, { ...job, requestId: 'req_paid' }, { ...handlers, video: boom });
     const [after] = await db.select().from(generationJobs).where(eq(generationJobs.id, job.id));
     expect(after!.status).toBe('queued');
-    expect(after!.requestId).toBeNull();
+    return after!;
+  }
+
+  it('starts a fresh request only when fal says the take failed', async () => {
+    const after = await failHoldingRequest(new VideoRequestFailedError('req_paid', 'bad input'));
+    expect(after.requestId).toBeNull();
+  });
+
+  it('keeps the paid request after any other error, to resume it', async () => {
+    const after = await failHoldingRequest(new Error('fetch failed'));
+    expect(after.requestId).toBe('req_paid');
   });
 
   it("ignores a presumed-dead worker's late result once its job was taken over", async () => {

@@ -4,7 +4,7 @@ import { and, desc, eq, isNull } from 'drizzle-orm';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import type { ClaimedJob } from './claim.ts';
+import { ownedByRun, type ClaimedJob } from './claim.ts';
 import { buildVideoPrompt } from './prompt.ts';
 import type { Moderator } from './providers/moderator.ts';
 import type { ScriptWriter } from './providers/script-writer.ts';
@@ -112,11 +112,10 @@ export function createSteps(db: Db, deps: StepDeps): Record<GenerationStep, Step
         referenceImageUrls,
         // Set when a worker stopped mid-take: the take was paid for, so wait on it instead.
         resumeRequestId: job.requestId,
+        // A crash between fal accepting the request and this write still loses it; the window is
+        // one round trip.
         onSubmitted: async (requestId) => {
-          await db
-            .update(generationJobs)
-            .set({ requestId, updatedAt: new Date() })
-            .where(eq(generationJobs.id, job.id));
+          await db.update(generationJobs).set({ requestId }).where(ownedByRun(job));
         },
       });
       return {
