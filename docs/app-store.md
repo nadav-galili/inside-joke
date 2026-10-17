@@ -148,3 +148,67 @@ review).
 - Open `<PUBLIC_URL>/privacy` and `<PUBLIC_URL>/support` once to check they load.
 - Screenshots: 6.9" iPhone (1320 × 2868), 3 to 10 of them. The genre picker, the script ticket and
   a finished video playing are the strongest three.
+
+## Final gate: full QA before "Submit for Review"
+
+Submission is the last step, and it happens only after every box below is ticked on the exact
+build being submitted. Run it from TestFlight on a real iPhone, against the production API and
+worker, signed in with a sandbox Apple account. A failing box blocks submission until it's fixed
+and the whole list is run again on the new build.
+
+**Install and sign in**
+
+- [ ] Fresh install from TestFlight opens to the sign-in screen with no error or blank screen.
+- [ ] Sign in with Apple works, including "Hide my email".
+- [ ] Email code sign-in works for a new address (sign-up) and an existing one.
+- [ ] The review demo account signs in with its code.
+- [ ] Sign out, then sign back in: the same groups and videos come back.
+
+**Consent and selfie**
+
+- [ ] The consent screen names Anthropic and fal and what each gets, and needs the 18+ box before
+      continuing.
+- [ ] Denying camera permission shows a way forward, not a dead end; allowing it opens the front
+      camera.
+- [ ] The selfie uploads and shows in Settings. Retake replaces it; Remove my face removes it.
+
+**Groups and friends**
+
+- [ ] Create a group; the invite link shares through the iOS share sheet.
+- [ ] The invite page opens in Safari on another phone: name, selfie (camera and photo library),
+      the three consent boxes, Join. The friend then shows in the group with a face.
+- [ ] The friend's private link removes their face, and takes down a video they're in.
+
+**Script**
+
+- [ ] New video: paste a short chat (one in Hebrew too), pick each genre once, choose the cast.
+- [ ] The script arrives; subtitles are in the chat's language (Hebrew right-to-left).
+- [ ] Edit a line and a subtitle, save, reopen: the edit stuck. Regenerate works up to its limit.
+
+**Payment**
+
+- [ ] First video: Roll camera spends the free video with no purchase sheet.
+- [ ] Second video: the $4.99 sheet shows the right price; cancelling returns quietly with no error.
+- [ ] Buying with the sandbox account adds the video and starts filming within a few seconds.
+- [ ] Settings shows credits correctly after a purchase.
+
+**Video**
+
+- [ ] The video finishes, a push notification arrives, and tapping it opens the video.
+- [ ] It plays with sound, burned-in subtitles and the "AI-generated" label; the free video also
+      has the watermark and the paid one doesn't.
+- [ ] Share sends the file to WhatsApp and saves it to Photos.
+- [ ] Delete video removes it from the group list.
+
+**Account and legal**
+
+- [ ] Settings → Privacy, Terms and Support open and load.
+- [ ] Delete account asks to confirm, signs out, and signing in again starts a fresh account.
+
+**Everywhere**
+
+- [ ] Airplane mode on any screen shows a friendly error and recovers when back online.
+- [ ] No crashes in Sentry and no red errors in the device log during the run.
+- [ ] Every screen reads well on the smallest supported iPhone and with large text.
+
+Note the build number and the date the list passed, then submit that build.
