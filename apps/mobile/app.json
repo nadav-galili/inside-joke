@@ -48,6 +48,12 @@
     "experiments": {
       "typedRoutes": true
     },
-    "owner": "nadavg"
+    "owner": "nadavg",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e1ccb297-61b0-4419-a1b7-c3678cf88b5d"
+      }
+    }
   }
 }
