@@ -42,7 +42,8 @@ function Routes() {
       }}
     >
       <Stack.Protected guard={!isSignedIn}>
-        <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+        <Stack.Screen name="welcome" options={{ headerShown: false }} />
+        <Stack.Screen name="sign-in" options={{ title: '' }} />
       </Stack.Protected>
       <Stack.Protected guard={!!isSignedIn}>
         <Stack.Screen name="index" options={{ title: '' }} />

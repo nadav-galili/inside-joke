@@ -12,6 +12,7 @@ const posthog = key
  * faces.
  */
 export type FunnelEvent =
+  | 'welcome_finished'
   | 'ai_consent_given'
   | 'selfie_added'
   | 'group_created'
