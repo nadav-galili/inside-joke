@@ -35,6 +35,7 @@ const app = createApp(db, {
     await clerk.users.deleteUser(id);
   },
   supportEmail: process.env.SUPPORT_EMAIL,
+  dataController: process.env.DATA_CONTROLLER,
 });
 serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, (info) => {
   console.log(`api listening on :${info.port}`);

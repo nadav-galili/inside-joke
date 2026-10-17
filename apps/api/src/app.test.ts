@@ -65,6 +65,7 @@ describe.skipIf(!testDbUrl)('api', () => {
         deletedAuthUsers.push(id);
       },
       supportEmail: 'help@insidejoke.test',
+      dataController: 'Test Owner, 1 Test St, Testville',
     });
   });
 
@@ -208,6 +209,7 @@ describe.skipIf(!testDbUrl)('api', () => {
     const text = await page.text();
     expect(text).toContain('Poker');
     expect(text).toContain('fal (MiniMax video model)');
+    expect(text).toContain('href="/privacy"');
     expect((await app.request('/join/nope')).status).toBe(404);
   });
 
@@ -457,5 +459,7 @@ describe.skipIf(!testDbUrl)('api', () => {
     const privacy = await (await app.request('/privacy')).text();
     expect(privacy).toContain('Anthropic');
     expect(privacy).toContain('fal');
+    expect(privacy).toContain('Test Owner, 1 Test St, Testville');
+    expect(privacy).toContain('legal basis');
   });
 });

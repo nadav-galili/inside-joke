@@ -10,7 +10,7 @@ const UPDATED = '17 October 2026';
  * The privacy policy, terms and support pages. App Store Connect links to them, and so does the
  * app's settings screen.
  */
-export function legalRoutes(supportEmail: string | undefined) {
+export function legalRoutes(supportEmail: string | undefined, controller: string | undefined) {
   const app = new Hono();
   const contact = supportEmail
     ? html`<a href="mailto:${supportEmail}">${supportEmail}</a>`
@@ -40,8 +40,9 @@ export function legalRoutes(supportEmail: string | undefined) {
               a photo of someone else.
             </li>
             <li>
-              <b>Chat text:</b> the part of a group chat you paste to make a video. We delete it as
-              soon as you approve the script.
+              <b>Chat text:</b> the part of a group chat you paste to make a video. It can include
+              messages from people who don't use Inside Joke, so only paste chats you're part of. We
+              delete it as soon as you approve the script.
             </li>
             <li>
               <b>Scripts and videos:</b> the script written from the chat, and the finished video.
@@ -51,9 +52,10 @@ export function legalRoutes(supportEmail: string | undefined) {
               never see your card.
             </li>
             <li>
-              <b>Usage and crashes:</b> which screens you use and error reports, so we can fix and
-              improve the app. We don't use them for advertising or share them with advertisers.
+              <b>Usage stats, only if you turn them on:</b> which screens you use, so we can improve
+              the app. They're off until you tick "Share usage stats" in Settings.
             </li>
+            <li><b>Crash reports:</b> errors and the device details needed to fix them.</li>
             <li><b>Notification token:</b> to tell you when your video is ready.</li>
           </ul>
 
@@ -67,27 +69,59 @@ export function legalRoutes(supportEmail: string | undefined) {
           </ul>
           <p>
             We also use Clerk for sign-in, Cloudflare R2 to store selfies and videos, Railway to run
-            our servers, RevenueCat for purchases, Expo for notifications, PostHog for usage
-            analytics and Sentry for crash reports. Each one handles the data only to provide its
-            service to us. We don't sell your data, and we don't track you across other apps or
-            websites.
+            our servers, RevenueCat for purchases, Expo for notifications, PostHog for usage stats
+            and Sentry for crash reports. Each one handles the data only to provide its service to
+            us. We don't sell your data, we don't use it for advertising, and we don't track you
+            across other apps or websites.
+          </p>
+
+          <h2>Why we use it (legal basis)</h2>
+          <ul>
+            <li>
+              <b>Making the videos you ask for</b> (account, scripts, videos, purchases,
+              notifications): to provide the service you signed up for (contract).
+            </li>
+            <li>
+              <b>Selfies, and sending chat text and photos to the AI services:</b> your consent,
+              given on the consent screen or the invite page. You can withdraw it at any time by
+              removing your face or deleting your account.
+            </li>
+            <li><b>Usage stats:</b> your consent, through the Settings switch.</li>
+            <li>
+              <b>Crash reports and the safety checks on scripts and videos:</b> our legitimate
+              interest in keeping the app working and stopping harmful videos.
+            </li>
+          </ul>
+
+          <h2>Where it's processed</h2>
+          <p>
+            Our providers are based in the United States, so your data is processed there. Transfers
+            from the EU, UK and Switzerland rely on the EU-US Data Privacy Framework where the
+            provider is certified, and otherwise on the European Commission's Standard Contractual
+            Clauses.
           </p>
 
           <h2>How long we keep it</h2>
           <ul>
             <li>
-              Chat text: until you approve the script, or delete the video. A script you never
-              approve keeps it until you delete your account.
+              Chat text: until you approve the script, and at most 7 days if you never approve it.
             </li>
             <li>
               Selfies: until the person removes their face, or the group's creator deletes their
-              account.
+              account. The file is deleted within a day of that.
             </li>
-            <li>Videos and scripts: until the video is deleted.</li>
+            <li>
+              Videos and scripts: until the video is deleted. fal deletes its copy of the raw video
+              after a day.
+            </li>
             <li>Everything else: until you delete your account.</li>
             <li>
-              Apple and RevenueCat keep their own records of purchases, which we can't delete for
-              them.
+              Purchase records: Apple and RevenueCat keep them, as tax and accounting rules require,
+              after you delete your account.
+            </li>
+            <li>
+              Usage stats: kept by PostHog after you delete your account unless you ask us to delete
+              them, which we do on request.
             </li>
           </ul>
 
@@ -108,8 +142,19 @@ export function legalRoutes(supportEmail: string | undefined) {
           <h2>Age</h2>
           <p>Inside Joke is for people 18 and older.</p>
 
-          <h2>Contact</h2>
-          <p>Questions or requests about your data: ${contact}.</p>`,
+          <h2>Your rights</h2>
+          <p>
+            You can ask us for a copy of your data, to correct it, to delete it, to limit or object
+            to how we use it, or to receive it in a portable format, and you can withdraw consent at
+            any time. Write to ${contact}. If you're in the EU, UK or Switzerland, you can also
+            complain to your local data protection authority.
+          </p>
+
+          <h2>Who we are</h2>
+          <p>
+            ${controller ? html`${controller} is` : html`We are`} responsible for your data (the
+            data controller). Questions or requests about your data: ${contact}.
+          </p>`,
       ),
     ),
   );

@@ -73,8 +73,9 @@ Submit the purchase together with the first app version, or App Review won't see
 ## Age rating
 
 Answer the questionnaire so it comes out at **18+**: the app itself requires it. Mark
-user-generated content as present, and everything else (violence, sexual content, gambling,
-medical, etc.) as none or infrequent/mild. Nothing in the app is unrestricted web access.
+user-generated content as present and AI-generated content as yes, and everything else (violence,
+sexual content, gambling, medical, etc.) as none or infrequent/mild. Nothing in the app is
+unrestricted web access.
 
 ## App Privacy (nutrition labels)
 
@@ -87,7 +88,7 @@ Tracking: **No**. Nothing is used for advertising or shared with data brokers.
 | User Content: Other User Content | Yes (pasted chat text, scripts) | Yes | App Functionality |
 | Identifiers: User ID | Yes | Yes | App Functionality, Analytics |
 | Purchases: Purchase History | Yes (RevenueCat) | Yes | App Functionality |
-| Usage Data: Product Interaction | Yes (PostHog) | Yes | Analytics |
+| Usage Data: Product Interaction | Yes (PostHog, only after the user opts in) | Yes | Analytics |
 | Diagnostics: Crash Data | Yes (Sentry) | No | App Functionality |
 | Diagnostics: Performance Data | Yes (Sentry) | No | App Functionality |
 
@@ -204,6 +205,22 @@ and the whole list is run again on the new build.
 
 - [ ] Settings → Privacy, Terms and Support open and load.
 - [ ] Delete account asks to confirm, signs out, and signing in again starts a fresh account.
+
+**Compliance**
+
+- [ ] The usage-stats box starts unticked. With it off, PostHog's live view shows no events; after
+      ticking it in Settings, events appear.
+- [ ] The invite page links to the privacy policy and terms next to its consent boxes.
+- [ ] The privacy page names the data controller with a postal address and the support email.
+- [ ] Delete account removes the user's groups, selfies and videos from R2 and the user from Clerk.
+- [ ] Remove my face deletes the selfie, and that person can't be cast in a new video.
+- [ ] Report a problem on a finished video creates a report and a Sentry alert.
+- [ ] An offensive line typed into the script is blocked before filming, and the free video or
+      credit comes back.
+- [ ] The $4.99 price shown comes from the App Store, and a cancelled purchase charges nothing.
+- [ ] In App Store Connect: the in-app purchase is submitted with the version, the privacy labels
+      match this doc with tracking set to No, and the age rating includes AI-generated content.
+- [ ] The build upload gets no privacy manifest warning email from Apple (ITMS-91053).
 
 **Everywhere**
 

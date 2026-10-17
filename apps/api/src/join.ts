@@ -79,6 +79,10 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
             <label class="check"
               ><input id="adult" type="checkbox" required /> <span>I'm 18 or older.</span></label
             >
+            <p class="muted">
+              <a href="/privacy" target="_blank">Privacy policy</a> ·
+              <a href="/terms" target="_blank">Terms of use</a>
+            </p>
             <button id="go" type="submit">Join the cast</button>
             <p id="err" class="error"></p>
           </form>

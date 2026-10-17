@@ -21,6 +21,8 @@ export type AppDeps = {
   deleteAuthUser: DeleteAuthUser;
   /** Shown on the support and privacy pages; App Store Connect links to them. */
   supportEmail: string | undefined;
+  /** Who is responsible for the data, with a postal address, as the privacy policy must say. */
+  dataController: string | undefined;
 };
 
 export function createApp(db: Db, deps: AppDeps) {
@@ -38,7 +40,7 @@ export function createApp(db: Db, deps: AppDeps) {
 
   // The invite and manage pages are public: friends open them from the group chat.
   app.route('/', joinRoutes(db, deps.storage, deps.publicUrl));
-  app.route('/', legalRoutes(deps.supportEmail));
+  app.route('/', legalRoutes(deps.supportEmail, deps.dataController));
 
   app.route('/webhooks/revenuecat', revenueCatRoutes(db, deps.revenueCatWebhookAuth));
 

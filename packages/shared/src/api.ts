@@ -11,7 +11,7 @@ export const AI_PROVIDERS = [
     name: 'Anthropic (Claude)',
     credit: 'Writes and checks',
     receives:
-      'the chat text you paste, to write the script, and a few frames of the finished video, to check it is safe before delivery',
+      'the chat text you paste, to write the script and check it before filming, and a few frames of the finished video, to check it is safe before delivery',
   },
   {
     name: 'fal (MiniMax video model)',
