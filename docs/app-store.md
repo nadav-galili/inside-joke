@@ -1,7 +1,9 @@
 # App Store submission
 
 Everything App Store Connect asks for, ready to paste. The privacy policy, terms and support pages
-are served by the API, so the URLs below use the API's public address (`PUBLIC_URL`).
+are served by the API at its public address (`PUBLIC_URL`, now
+`https://api-production-924d0.up.railway.app`). If the API moves to a custom domain, update both
+URLs here and in App Store Connect.
 
 ## Listing
 
@@ -11,8 +13,9 @@ are served by the API, so the URLs below use the API's public address (`PUBLIC_U
 | Subtitle (30) | Funny Video Maker for Friends |
 | Primary category | Entertainment |
 | Secondary category | Photo & Video |
-| Privacy policy URL | `<PUBLIC_URL>/privacy` |
-| Support URL | `<PUBLIC_URL>/support` |
+| Privacy policy URL | `https://api-production-924d0.up.railway.app/privacy` |
+| Support URL | `https://api-production-924d0.up.railway.app/support` |
+| Marketing URL | leave empty |
 | Copyright | 2026 Nadav Galili |
 
 **Promotional text (170)**
@@ -20,13 +23,15 @@ are served by the API, so the URLs below use the API's public address (`PUBLIC_U
 > Paste a moment from your group chat, pick a genre, and get a 15-second comedy starring your
 > friends. Everyone adds their own selfie. Your first video is on us.
 
-**Keywords (100)**
+**Keywords (100)**: words already in the name and subtitle (inside, joke, AI, group, videos,
+funny, video, maker, friends) are indexed anyway, so they are left out here.
 
 ```
-comedy,meme,skit,roast,birthday,prank,sketch,movie,trailer,selfie,cast,starring,group chat,laugh
+comedy,meme,skit,roast,birthday,prank,sketch,movie,trailer,selfie,cast,starring,chat,laugh,gift
 ```
 
-**Description**
+**Description** (under 4,000 characters; no price, emoji or contact details, which Apple
+discourages in the body)
 
 > Your group chat already wrote the comedy. Inside Joke turns it into a movie.
 >
@@ -35,21 +40,22 @@ comedy,meme,skit,roast,birthday,prank,sketch,movie,trailer,selfie,cast,starring,
 > watch it land.
 >
 > HOW IT WORKS
-> • Start a group and share its invite link in your real chat.
-> • Each friend adds their own selfie from the link. Nobody can add someone else's face.
-> • Paste a bit of the chat and pick a genre: 80s action trailer, nature documentary, telenovela
->   and more.
-> • Read the script, tweak the lines, then roll camera.
-> • Your video is ready in minutes, with subtitles in your chat's language.
+> - Start a group and share its invite link in your real chat.
+> - Each friend adds their own selfie from the link. Nobody can add someone else's face.
+> - Paste a bit of the chat and pick a genre: 80s action trailer, nature documentary, telenovela
+>   or sports commentary.
+> - Read the script, tweak the lines, then roll camera.
+> - Your video is ready in minutes, with subtitles in your chat's language.
 >
 > PRIVATE BY DESIGN
-> • The chat text is deleted as soon as you approve the script.
-> • Friends can remove their face, or take down any video they're in, at any time.
-> • Every video is labelled as AI-generated.
+> - The chat text is deleted as soon as you approve the script.
+> - Friends can remove their face, or take down any video they're in, at any time.
+> - Every video is labelled as AI-generated and checked before it reaches you.
+> - Something wrong with a video? Report it from the video screen.
 >
 > PRICING
-> Your first video is free, with a small Inside Joke watermark. After that, each video is a single
-> $4.99 purchase with no watermark. No subscription.
+> Your first video is free, with a small Inside Joke watermark. After that, each video is a
+> single in-app purchase with no watermark. No subscription.
 >
 > Inside Joke is for adults 18 and over.
 
@@ -85,10 +91,26 @@ Submit the purchase together with the first app version, or App Review won't see
 
 ## Age rating
 
-Answer the questionnaire so it comes out at **18+**: the app itself requires it. Mark
-user-generated content as present and AI-generated content as yes, and everything else (violence,
-sexual content, gambling, medical, etc.) as none or infrequent/mild. Nothing in the app is
-unrestricted web access.
+The app requires 18+, so the rating must come out at **18+**. Answer the questionnaire like this:
+
+| Question | Answer |
+| --- | --- |
+| Parental controls | No |
+| Age assurance | No (users confirm 18+ on the consent screen; there is no ID check) |
+| Unrestricted web access | No |
+| User-generated content | Yes |
+| Messaging and chat | No (there is no in-app messaging between users) |
+| Advertising | No |
+| AI-generated content / AI assistant | Yes |
+| Profanity or crude humor | Infrequent/mild (scripts come from real chats) |
+| Mature or suggestive themes | Infrequent/mild |
+| Cartoon or fantasy violence | Infrequent/mild (the 80s action trailer genre) |
+| Realistic violence, horror, sexual content or nudity | None |
+| Alcohol, tobacco or drug references | Infrequent/mild (scripts come from real chats) |
+| Medical or treatment information | None |
+| Gambling, simulated gambling, contests | None |
+
+If those answers come out lower than 18+, set the age rating override to **18+**.
 
 ## App Privacy (nutrition labels)
 
@@ -97,8 +119,9 @@ Tracking: **No**. Nothing is used for advertising or shared with data brokers.
 | Data type | Collected | Linked to user | Used for |
 | --- | --- | --- | --- |
 | Contact Info: Email Address | Yes (Clerk sign-in) | Yes | App Functionality |
+| Contact Info: Name | Yes (the display name shown in a group) | Yes | App Functionality |
 | User Content: Photos or Videos | Yes (selfies, finished videos) | Yes | App Functionality |
-| User Content: Other User Content | Yes (pasted chat text, scripts) | Yes | App Functionality |
+| User Content: Other User Content | Yes (pasted chat text, scripts, video reports) | Yes | App Functionality |
 | Identifiers: User ID | Yes | Yes | App Functionality, Analytics |
 | Purchases: Purchase History | Yes (RevenueCat) | Yes | App Functionality |
 | Usage Data: Product Interaction | Yes (PostHog, only after the user opts in) | Yes | Analytics |
@@ -129,8 +152,9 @@ Paste into App Review Information → Notes:
 > • Before any text or photo leaves the device, the consent screen names the AI providers
 >   (Anthropic and fal) and what each receives (guideline 5.1.2(i)), and asks the user to confirm
 >   they're 18+.
-> • A face can only come from that person's own selfie: the app user takes theirs with the front
->   camera, and friends add theirs on the group's invite page, with their own consent.
+> • A face can only come from that person's own selfie, taken with the camera or picked from
+>   their photos, after they confirm it is a photo of them: the app user adds theirs in the app,
+>   and friends add theirs on the group's invite page.
 > • Every finished video is checked for safety before it's delivered and carries an
 >   "AI-generated" label.
 > • Anyone in a video can take it down at once from their private link, and can remove their
@@ -161,9 +185,12 @@ review).
   contact address, and `DATA_CONTROLLER` (your name and postal address) so the privacy policy
   names who is responsible for the data.
 - Check Pricing and Availability excludes the EU and the UK (see Availability above).
-- Open `<PUBLIC_URL>/privacy` and `<PUBLIC_URL>/support` once to check they load.
-- Screenshots: 6.9" iPhone (1320 × 2868), 3 to 10 of them. The genre picker, the script ticket and
-  a finished video playing are the strongest three.
+- Open the privacy policy and support URLs above once to check they load.
+- Screenshots: upload the seven in the project's `design/screenshots/6.9-inch` folder
+  (1320 × 2868) in their numbered order; `6.5-inch` (1242 × 2688) has the same set if App Store
+  Connect asks for that size too.
+- App preview: upload `design/preview-video/inside-joke-preview-886x1920.mp4` to the 6.9" iPhone
+  slot, and pick the frame that matches `poster.jpg` as its poster frame.
 
 ## Final gate: full QA before "Submit for Review"
 
