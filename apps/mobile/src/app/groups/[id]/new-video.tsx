@@ -72,13 +72,30 @@ export default function NewVideo() {
     }
   }
 
-  const ready = text.trim().length > 0 && style !== null && cast.length >= MIN_CAST;
+  // The button says what's still missing instead of just greying out.
+  const missing =
+    text.trim().length === 0
+      ? 'Paste the moment first'
+      : style === null
+        ? 'Pick a genre'
+        : castable.length < MIN_CAST
+          ? 'Invite more friends to cast'
+          : cast.length < MIN_CAST
+            ? `Pick ${MIN_CAST - cast.length} more for the cast`
+            : null;
+  const nearLimit = text.length > MAX_INPUT_CHARS * 0.8;
   return (
     <Screen
       footer={
         <>
           <ErrorText>{error}</ErrorText>
-          <Button title="Write the script" onPress={submit} busy={busy} disabled={!ready} />
+          <Button
+            title={missing ?? 'Write the script'}
+            onPress={submit}
+            busy={busy}
+            busyTitle="Calling the writers…"
+            disabled={missing !== null}
+          />
         </>
       }
     >
@@ -96,7 +113,11 @@ export default function NewVideo() {
           multiline
           maxLength={MAX_INPUT_CHARS}
           placeholder="Paste the messages from your group chat, or describe the inside joke."
-          hint={`${text.length}/${MAX_INPUT_CHARS}. We delete this text once you approve the script.`}
+          hint={
+            nearLimit
+              ? `${text.length} of ${MAX_INPUT_CHARS} characters. We delete this text once you approve the script.`
+              : 'We delete this text once you approve the script.'
+          }
         />
       </Rise>
 
