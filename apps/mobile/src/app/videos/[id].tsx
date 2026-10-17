@@ -225,6 +225,7 @@ function ScriptReview({
       await new Promise((r) => setTimeout(r, 700));
       await reload();
     } catch {
+      setTorn(false);
       setError('Something went wrong. Please try again.');
     } finally {
       setBusy(null);

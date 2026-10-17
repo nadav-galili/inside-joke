@@ -36,7 +36,7 @@ const page = (title: string, body: ReturnType<typeof html>) =>
             --dust: #bba2ab;
             --bulb: #ffb53d;
             --on-bulb: #2a1405;
-            --display: 'Bricolage Grotesque', 'Avenir Next', system-ui, sans-serif;
+            --display: 'Avenir Next', system-ui, sans-serif;
           }
           * {
             box-sizing: border-box;
@@ -54,8 +54,7 @@ const page = (title: string, body: ReturnType<typeof html>) =>
           }
           .eyebrow {
             font:
-              700 12px/1 'Courier Prime',
-              ui-monospace,
+              700 12px/1 ui-monospace,
               monospace;
             letter-spacing: 0.14em;
             text-transform: uppercase;
@@ -76,8 +75,7 @@ const page = (title: string, body: ReturnType<typeof html>) =>
             display: block;
             margin: 24px 0 8px;
             font:
-              700 12px/1 'Courier Prime',
-              ui-monospace,
+              700 12px/1 ui-monospace,
               monospace;
             letter-spacing: 0.12em;
             text-transform: uppercase;

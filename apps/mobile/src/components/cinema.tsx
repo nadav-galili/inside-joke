@@ -133,7 +133,7 @@ export function Ticket({
       accessibilityState={{ disabled: !!disabled, busy: !!busy }}
       onPress={onPress}
       disabled={disabled || busy}
-      style={[styles.ticketRow, disabled && { opacity: 0.45 }]}
+      style={[styles.ticketRow, disabled && !torn && { opacity: 0.45 }]}
     >
       <View style={[styles.ticketMain, styles.ticketGlow]}>
         <Text style={styles.ticketCaption}>{caption.toUpperCase()}</Text>
