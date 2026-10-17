@@ -1,7 +1,7 @@
 import { VIDEO_STYLES, type GroupSummary, type Me, type VideoStyle } from '@insidejoke/shared';
 import { Link, Redirect, router, Stack, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { GenrePoster } from '../components/cinema';
 import {
   Avatar,
@@ -19,7 +19,8 @@ import { identify } from '../lib/analytics';
 import { useResource } from '../lib/api';
 import { configurePurchases } from '../lib/purchases';
 import { usePushNotifications } from '../lib/push';
-import { colors as c, type } from '../lib/theme';
+import { SAMPLES } from '../lib/samples';
+import { colors as c, fonts, radius } from '../lib/theme';
 
 /** Home: the user's groups. Sends a new user through AI consent and their selfie first. */
 export default function Home() {
@@ -82,14 +83,35 @@ export default function Home() {
       </Rise>
       {empty && (
         <Rise index={1}>
-          <Card style={{ gap: 18, padding: 20 }}>
-            {HOW_IT_WORKS.map((step, i) => (
-              <View key={step} style={styles.howRow}>
-                <Text style={styles.howNumber}>{i + 1}</Text>
-                <Body style={{ flex: 1 }}>{step}</Body>
-              </View>
-            ))}
-          </Card>
+          <View style={{ gap: 18 }}>
+            <View style={styles.stills} accessibilityElementsHidden>
+              {SAMPLES.slice(0, 3).map((s, i) => (
+                <Image
+                  key={s.title}
+                  source={s.poster}
+                  style={[
+                    styles.still,
+                    {
+                      transform: [
+                        { rotate: `${(i - 1) * 6}deg` },
+                        { translateY: Math.abs(i - 1) * 10 },
+                      ],
+                    },
+                  ]}
+                />
+              ))}
+            </View>
+            <Card style={{ gap: 18, padding: 20 }}>
+              {HOW_IT_WORKS.map((step, i) => (
+                <View key={step} style={styles.howRow}>
+                  <View style={styles.howBadge}>
+                    <Text style={styles.howNumber}>{i + 1}</Text>
+                  </View>
+                  <Body style={{ flex: 1 }}>{step}</Body>
+                </View>
+              ))}
+            </Card>
+          </View>
         </Rise>
       )}
       {groups.data?.map((g, i) => (
@@ -131,7 +153,25 @@ function posterFor(id: string): VideoStyle {
 
 const styles = StyleSheet.create({
   howRow: { flexDirection: 'row', gap: 14, alignItems: 'flex-start' },
-  howNumber: { ...type.heading, color: c.accent, width: 18 },
+  howBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: c.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  howNumber: { fontFamily: fonts.display, fontSize: 14, color: c.accent },
+  stills: { flexDirection: 'row', justifyContent: 'center', paddingVertical: 8 },
+  still: {
+    width: 96,
+    aspectRatio: 9 / 16,
+    marginHorizontal: -6,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: c.border,
+  },
   group: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 12 },
   groupPoster: { width: 72, padding: 10 },
   chevron: { color: c.faint, fontSize: 28, marginRight: 4 },
