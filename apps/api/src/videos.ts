@@ -9,7 +9,7 @@ import {
   type Script,
   type VideoDetail,
 } from '@insidejoke/shared';
-import { and, count, eq, gt, inArray, isNull, ne, sql, type SQL } from 'drizzle-orm';
+import { and, count, eq, gt, inArray, isNull, ne, type SQL } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { AuthVariables } from './auth.ts';
 import {
@@ -17,6 +17,7 @@ import {
   generationJobs,
   groups,
   members,
+  oneDayAgo,
   users,
   videoCast,
   videos,
@@ -37,8 +38,6 @@ function sameShape(a: Script, b: Script): boolean {
   const timing = (s: Script) => s.beats.map((x) => `${x.fromSecond}-${x.toSecond}`).join();
   return castIds(a) === castIds(b) && timing(a) === timing(b);
 }
-
-const oneDayAgo = sql`now() - interval '1 day'`;
 
 export function videoRoutes(db: Db, storage: Storage, freeVideosPerDay: number) {
   const app = new Hono<{ Variables: AuthVariables }>();

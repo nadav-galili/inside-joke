@@ -29,6 +29,11 @@ export type AppDeps = {
 const MAX_BODY_BYTES = 64 * 1024;
 export const DEFAULT_FREE_VIDEOS_PER_DAY = 20;
 
+/** The cap from `FREE_VIDEOS_PER_DAY`, or the default when it is unset or not a whole number. */
+export function freeVideosPerDay(value = process.env.FREE_VIDEOS_PER_DAY): number {
+  return value && /^\d+$/.test(value) ? Number(value) : DEFAULT_FREE_VIDEOS_PER_DAY;
+}
+
 export function createApp(db: Db, deps: AppDeps) {
   const limits = deps.rateLimits ?? DEFAULT_RATE_LIMITS;
   const app = new Hono<{ Variables: AuthVariables }>();

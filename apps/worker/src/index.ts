@@ -47,8 +47,8 @@ const spendLimit = dailySpendLimit();
 let lastBudgetCheck = 0;
 let overBudget = false;
 /**
- * A circuit breaker on provider spend: past the day's limit the worker only films videos people
- * bought, and leaves scripts and free videos queued, so a flood of sign-ups or a bug can't run up
+ * A circuit breaker on provider spend: past the day's limit the worker only does paying customers'
+ * work (see `claimNextJob`) and leaves other scripts and free videos queued, so a flood of sign-ups or a bug can't run up
  * fal and Anthropic. The rest resumes as the 24-hour window moves on.
  */
 async function checkBudget() {

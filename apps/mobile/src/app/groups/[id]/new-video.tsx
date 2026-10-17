@@ -23,7 +23,7 @@ import {
   Title,
 } from '../../../components/ui';
 import { track } from '../../../lib/analytics';
-import { ApiError, DAILY_LIMIT_MESSAGE, useApi, useResource } from '../../../lib/api';
+import { ApiError, LIMIT_MESSAGES, useApi, useResource } from '../../../lib/api';
 import { STYLE_LABELS } from '../../../lib/styles';
 import { colors as c, type } from '../../../lib/theme';
 
@@ -66,9 +66,7 @@ export default function NewVideo() {
       setError(
         code === 'cast_without_consent'
           ? 'Someone in the cast removed their selfie. Pick the cast again.'
-          : code === 'daily_limit'
-            ? DAILY_LIMIT_MESSAGE
-            : "We couldn't start the video. Please try again.",
+          : (LIMIT_MESSAGES[code ?? ''] ?? "We couldn't start the video. Please try again."),
       );
       setBusy(false);
     }

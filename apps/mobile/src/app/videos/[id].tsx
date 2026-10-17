@@ -32,7 +32,7 @@ import {
   Title,
 } from '../../components/ui';
 import { track } from '../../lib/analytics';
-import { ApiError, DAILY_LIMIT_MESSAGE, useApi, useResource } from '../../lib/api';
+import { ApiError, LIMIT_MESSAGES, useApi, useResource } from '../../lib/api';
 import { buyVideo, videoPrice } from '../../lib/purchases';
 import { isInProgress, STATUS_LABELS, STYLE_LABELS } from '../../lib/styles';
 import { colors as c, radius } from '../../lib/theme';
@@ -233,11 +233,7 @@ function ScriptReview({
       await reload();
     } catch (e) {
       setTorn(false);
-      setError(
-        e instanceof ApiError && e.code === 'free_limit'
-          ? "Today's free videos are all taken. Yours is saved for tomorrow."
-          : 'Something went wrong. Please try again.',
-      );
+      setError(limitMessage(e) ?? 'Something went wrong. Please try again.');
     } finally {
       setBusy(null);
     }
@@ -250,11 +246,7 @@ function ScriptReview({
       track('script_regenerated');
       await reload();
     } catch (e) {
-      setError(
-        e instanceof ApiError && e.code === 'daily_limit'
-          ? DAILY_LIMIT_MESSAGE
-          : "We couldn't write a new script.",
-      );
+      setError(limitMessage(e) ?? "We couldn't write a new script.");
     } finally {
       setBusy(null);
     }
@@ -341,6 +333,10 @@ function ScriptReview({
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 /** A line of dialogue you can edit in place, highlighted like a marker while you type. */
+/** The app's words for a daily cap the API hit, or undefined for any other failure. */
+const limitMessage = (e: unknown) =>
+  e instanceof ApiError && e.code ? LIMIT_MESSAGES[e.code] : undefined;
+
 function ScriptInput({
   value,
   onChangeText,

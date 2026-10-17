@@ -3,10 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
-/** A non-2xx answer from the API, with its status and error code. */
-/** What the app says when an account has had all of today's scripts written (the API's `daily_limit`). */
-export const DAILY_LIMIT_MESSAGE = "That's all the scripts for today. Come back tomorrow for more.";
+/** What the app says when the API turns a request down for one of its daily caps, by error code. */
+export const LIMIT_MESSAGES: Record<string, string> = {
+  daily_limit: "That's all the scripts for today. Come back tomorrow for more.",
+  free_limit: "Today's free videos are all taken. Yours is saved for tomorrow.",
+};
 
+/** A non-2xx answer from the API, with its status and error code. */
 export class ApiError extends Error {
   constructor(
     readonly status: number,

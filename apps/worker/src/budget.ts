@@ -1,5 +1,5 @@
-import { generationJobs, type Db } from '@insidejoke/db';
-import { and, eq, gt, sql, sum } from 'drizzle-orm';
+import { generationJobs, oneDayAgo, type Db } from '@insidejoke/db';
+import { and, eq, gt, sum } from 'drizzle-orm';
 
 /** What the worker may spend on AI providers in any 24 hours before it stops taking jobs. */
 export const DEFAULT_DAILY_SPEND_LIMIT_USD = 50;
@@ -11,12 +11,7 @@ export async function spentInLastDay(db: Db): Promise<number> {
   const [row] = await db
     .select({ usd: sum(generationJobs.costUsd) })
     .from(generationJobs)
-    .where(
-      and(
-        eq(generationJobs.status, 'done'),
-        gt(generationJobs.updatedAt, sql`now() - interval '1 day'`),
-      ),
-    );
+    .where(and(eq(generationJobs.status, 'done'), gt(generationJobs.updatedAt, oneDayAgo)));
   return Number(row?.usd ?? 0);
 }
 

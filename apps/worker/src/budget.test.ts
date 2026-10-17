@@ -1,4 +1,4 @@
-import { generationJobs, videos } from '@insidejoke/db';
+import { generationJobs, users, videos } from '@insidejoke/db';
 import { eq } from 'drizzle-orm';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { claimNextJob } from './claim.ts';
@@ -51,18 +51,29 @@ describe.skipIf(!testDbUrl)('claimNextJob while over budget', () => {
     await clearJobs(db);
   });
 
-  it('only films and finishes videos someone bought', async () => {
+  it("only takes paying customers' work", async () => {
     const free = (await seedVideo(db)).video;
     const bought = (await seedVideo(db)).video;
+    const credited = (await seedVideo(db)).video;
     await db.update(videos).set({ watermarked: false }).where(eq(videos.id, bought.id));
+    await db.update(users).set({ videoCredits: 1 }).where(eq(users.id, credited.creatorId));
     await db.insert(generationJobs).values([
       { videoId: free.id, step: 'script' },
       { videoId: free.id, step: 'video' },
       { videoId: bought.id, step: 'finish' },
+      { videoId: credited.id, step: 'script' },
     ]);
-    const job = await claimNextJob(db, { paidOnly: true });
-    expect([job?.videoId, job?.step]).toEqual([bought.id, 'finish']);
-    expect(await claimNextJob(db, { paidOnly: true })).toBeNull();
+    const taken = [];
+    for (let job; (job = await claimNextJob(db, { paidOnly: true }));) {
+      taken.push([job.videoId, job.step]);
+    }
+    expect(taken).toEqual(
+      expect.arrayContaining([
+        [bought.id, 'finish'],
+        [credited.id, 'script'],
+      ]),
+    );
+    expect(taken).toHaveLength(2);
     expect(await claimNextJob(db)).not.toBeNull();
   });
 });

@@ -22,7 +22,7 @@ import {
 } from '@insidejoke/shared';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { createApp, type AppDeps } from './app.ts';
+import { createApp, DEFAULT_FREE_VIDEOS_PER_DAY, freeVideosPerDay, type AppDeps } from './app.ts';
 import type { Storage } from './storage.ts';
 
 const testDbUrl = process.env.TEST_DATABASE_URL;
@@ -514,5 +514,15 @@ describe.skipIf(!testDbUrl)('api', () => {
       expect(page.headers.get('referrer-policy')).toBe('no-referrer');
       expect(page.headers.get('x-frame-options')).toBe('SAMEORIGIN');
     });
+  });
+});
+
+describe('freeVideosPerDay', () => {
+  it('reads a whole number and falls back to the default', () => {
+    expect(freeVideosPerDay('5')).toBe(5);
+    expect(freeVideosPerDay('0')).toBe(0);
+    expect(freeVideosPerDay(undefined)).toBe(DEFAULT_FREE_VIDEOS_PER_DAY);
+    expect(freeVideosPerDay('lots')).toBe(DEFAULT_FREE_VIDEOS_PER_DAY);
+    expect(freeVideosPerDay('-1')).toBe(DEFAULT_FREE_VIDEOS_PER_DAY);
   });
 });

@@ -32,17 +32,17 @@ export function rateLimit(limit: RateLimit, keyOf: (c: Context) => string): Midd
     const now = Date.now();
     if (now >= nextSweep) {
       nextSweep = now + limit.windowMs;
-      for (const [key, w] of windows) if (w.resetAt <= now) windows.delete(key);
+      for (const [key, { resetAt }] of windows) if (resetAt <= now) windows.delete(key);
     }
     const key = keyOf(c);
-    let w = windows.get(key);
-    if (!w || w.resetAt <= now) {
-      w = { count: 0, resetAt: now + limit.windowMs };
-      windows.set(key, w);
+    let bucket = windows.get(key);
+    if (!bucket || bucket.resetAt <= now) {
+      bucket = { count: 0, resetAt: now + limit.windowMs };
+      windows.set(key, bucket);
     }
-    w.count += 1;
-    if (w.count > limit.requests) {
-      c.header('Retry-After', String(Math.ceil((w.resetAt - now) / 1000)));
+    bucket.count += 1;
+    if (bucket.count > limit.requests) {
+      c.header('Retry-After', String(Math.ceil((bucket.resetAt - now) / 1000)));
       return c.json({ error: 'rate_limited' }, 429);
     }
     await next();
