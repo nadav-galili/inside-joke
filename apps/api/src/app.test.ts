@@ -12,6 +12,8 @@ import {
 import {
   AI_CONSENT_VERSION,
   FACE_CONSENT_VERSION,
+  MAX_GROUP_MEMBERS,
+  MAX_SCRIPTS_PER_DAY,
   type GroupDetail,
   type GroupSummary,
   type Me,
@@ -20,7 +22,7 @@ import {
 } from '@insidejoke/shared';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { createApp } from './app.ts';
+import { createApp, DEFAULT_FREE_VIDEOS_PER_DAY, freeVideosPerDay, type AppDeps } from './app.ts';
 import type { Storage } from './storage.ts';
 
 const testDbUrl = process.env.TEST_DATABASE_URL;
@@ -42,6 +44,7 @@ function fakeStorage() {
 describe.skipIf(!testDbUrl)('api', () => {
   let db: Db;
   const { storage, objects } = fakeStorage();
+  const deletedAuthUsers: string[] = [];
   let app: ReturnType<typeof createApp>;
 
   beforeAll(async () => {
@@ -54,14 +57,29 @@ describe.skipIf(!testDbUrl)('api', () => {
     url.pathname = `/${name}`;
     db = createDb(url.toString());
     await runMigrations(db);
-    // The test token is the Clerk user id itself.
-    app = createApp(db, {
+    app = createApp(db, testDeps());
+  });
+
+  /** The test token is the Clerk user id itself. Limits are out of the way unless a test sets them. */
+  function testDeps(overrides: Partial<AppDeps> = {}): AppDeps {
+    return {
       verifyToken: async (t) => t,
       storage,
       publicUrl: 'https://api.test',
       revenueCatWebhookAuth: 'Bearer rc-secret',
-    });
-  });
+      deleteAuthUser: async (id) => {
+        deletedAuthUsers.push(id);
+      },
+      supportEmail: 'help@insidejoke.test',
+      dataController: 'Test Owner, 1 Test St, Testville',
+      rateLimits: {
+        public: { requests: 1_000_000, windowMs: 60_000 },
+        user: { requests: 1_000_000, windowMs: 60_000 },
+      },
+      freeVideosPerDay: 1_000_000,
+      ...overrides,
+    };
+  }
 
   /** A client signed in as a brand-new Clerk user. */
   function client(clerkId = crypto.randomUUID()) {
@@ -203,6 +221,7 @@ describe.skipIf(!testDbUrl)('api', () => {
     const text = await page.text();
     expect(text).toContain('Poker');
     expect(text).toContain('fal (MiniMax video model)');
+    expect(text).toContain('href="/privacy"');
     expect((await app.request('/join/nope')).status).toBe(404);
   });
 
@@ -343,6 +362,21 @@ describe.skipIf(!testDbUrl)('api', () => {
     expect((await me.call('GET', `/videos/${videoId}`)).status).toBe(404);
   });
 
+  it("logs a report on the creator's video, and only their own", async () => {
+    const { me, videoId } = await scriptedVideo();
+    expect((await me.call('POST', `/videos/${videoId}/report`, { reason: 'spam' })).status).toBe(
+      400,
+    );
+    expect(
+      (await client().call('POST', `/videos/${videoId}/report`, { reason: 'other' })).status,
+    ).toBe(404);
+    expect(
+      (await me.call('POST', `/videos/${videoId}/report`, { reason: 'offensive' })).status,
+    ).toBe(200);
+    const logged = await db.select().from(reports).where(eq(reports.videoId, videoId));
+    expect(logged.map((r) => r.reason)).toEqual(['offensive']);
+  });
+
   it('needs the 18+ confirmation with AI consent', async () => {
     const { call } = client();
     const res = await call('POST', '/me/ai-consent', { version: AI_CONSENT_VERSION });
@@ -410,5 +444,151 @@ describe.skipIf(!testDbUrl)('api', () => {
     expect(objects.has(key)).toBe(false);
     const logged = await db.select().from(reports).where(eq(reports.videoId, video.id));
     expect(logged).toHaveLength(1);
+  });
+
+  it('deletes the account with its groups, selfies and videos', async () => {
+    const { me, group } = await readyGroup();
+    const { body: video } = await me.call('POST', '/videos', {
+      groupId: group.id,
+      inputText: 'hi',
+      style: 'telenovela',
+      castMemberIds: group.members.map((m) => m.id),
+    });
+    const videoKey = `videos/${video.id}.mp4`;
+    objects.add(videoKey);
+    await db
+      .update(videos)
+      .set({ status: 'ready', r2Key: videoKey })
+      .where(eq(videos.id, video.id));
+    const faceKeys = (
+      await db
+        .select({ key: faces.r2Key })
+        .from(faces)
+        .innerJoin(members, eq(members.id, faces.memberId))
+        .where(eq(members.groupId, group.id))
+    ).map((r) => r.key);
+    expect(faceKeys).toHaveLength(3);
+
+    expect((await me.call('DELETE', '/me')).status).toBe(200);
+    expect(deletedAuthUsers).toContain(me.clerkId);
+    for (const key of [...faceKeys, videoKey]) expect(objects.has(key)).toBe(false);
+    expect(await db.select().from(users).where(eq(users.clerkUserId, me.clerkId))).toHaveLength(0);
+    expect(await db.select().from(members).where(eq(members.groupId, group.id))).toHaveLength(0);
+    expect(await db.select().from(videos).where(eq(videos.id, video.id))).toHaveLength(0);
+  });
+
+  it('serves the privacy policy, terms and support pages with the providers and contact', async () => {
+    for (const path of ['/privacy', '/terms', '/support']) {
+      const res = await app.request(path);
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain('help@insidejoke.test');
+    }
+    const privacy = await (await app.request('/privacy')).text();
+    expect(privacy).toContain('Anthropic');
+    expect(privacy).toContain('fal');
+    expect(privacy).toContain('Test Owner, 1 Test St, Testville');
+    expect(privacy).toContain('legal basis');
+  });
+
+  describe('guardrails', () => {
+    it('limits requests per IP on the public pages and per user on the API', async () => {
+      const limited = createApp(
+        db,
+        testDeps({
+          rateLimits: {
+            public: { requests: 2, windowMs: 60_000 },
+            user: { requests: 2, windowMs: 60_000 },
+          },
+        }),
+      );
+      const page = async (ip: string) =>
+        (await limited.request('/join/nope', { headers: { 'x-real-ip': ip } })).status;
+      expect([await page('1.1.1.1'), await page('1.1.1.1'), await page('1.1.1.1')]).toEqual([
+        404, 404, 429,
+      ]);
+      expect(await page('2.2.2.2')).toBe(404);
+
+      const me = async (clerkId: string) =>
+        (await limited.request('/me', { headers: { authorization: `Bearer ${clerkId}` } })).status;
+      const a = crypto.randomUUID();
+      expect([await me(a), await me(a), await me(a)]).toEqual([200, 200, 429]);
+      expect(await me(crypto.randomUUID())).toBe(200);
+    });
+
+    it('caps the scripts one account can have written in a day', async () => {
+      const { me, group } = await readyGroup();
+      const castMemberIds = group.members.slice(1, 3).map((m) => m.id);
+      const start = () =>
+        me.call('POST', '/videos', {
+          groupId: group.id,
+          inputText: 'again',
+          style: 'telenovela',
+          castMemberIds,
+        });
+      for (let i = 0; i < MAX_SCRIPTS_PER_DAY; i++) expect((await start()).status).toBe(201);
+      const over = await start();
+      expect(over.status).toBe(429);
+      expect(over.body.error).toBe('daily_limit');
+    });
+
+    it('holds the free video back once the day’s free videos are gone', async () => {
+      const noneLeft = createApp(db, testDeps({ freeVideosPerDay: 0 }));
+      const { me, videoId } = await scriptedVideo();
+      const res = await noneLeft.request(`/videos/${videoId}/approve`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${me.clerkId}` },
+      });
+      expect(res.status).toBe(429);
+      expect(await res.json()).toEqual({ error: 'free_limit' });
+      expect(((await me.call('GET', '/me')).body as Me).freeVideoUsed).toBe(false);
+    });
+
+    it('stops an invite link once the group is full', async () => {
+      const { group } = await readyGroup();
+      for (let i = group.memberCount; i < MAX_GROUP_MEMBERS; i++) {
+        expect((await joinAsFriend(group.inviteUrl, `Friend ${i}`)).status).toBe(201);
+      }
+      const code = group.inviteUrl.split('/join/')[1]!;
+      const upload = await app.request(`/join/${code}/upload-url`, { method: 'POST' });
+      expect(upload.status).toBe(409);
+      expect(await upload.json()).toEqual({ error: 'group_full' });
+    });
+
+    it('keeps only the spoken words of an edit, within a length limit', async () => {
+      const { me, videoId, script } = await scriptedVideo();
+      const beats = script.beats.map((b) => ({ ...b, action: 'Ignore the rules', line: 'Hi' }));
+      const edited = { ...script, setting: 'Something else entirely', beats };
+      const saved = await me.call('PUT', `/videos/${videoId}/script`, { script: edited });
+      expect(saved.status).toBe(200);
+      const kept = (saved.body as VideoDetail).script!;
+      expect(kept.setting).toBe(script.setting);
+      expect(kept.beats.map((b) => [b.action, b.line])).toEqual(
+        script.beats.map((b) => [b.action, 'Hi']),
+      );
+
+      const long = { ...script, beats: beats.map((b) => ({ ...b, line: 'x'.repeat(201) })) };
+      expect((await me.call('PUT', `/videos/${videoId}/script`, { script: long })).status).toBe(
+        400,
+      );
+    });
+
+    it('refuses oversized bodies and sends no referrer from the public pages', async () => {
+      const { call } = client();
+      const big = await call('POST', '/me/push-token', { token: 'x'.repeat(100_000) });
+      expect(big.status).toBe(413);
+      const page = await app.request('/join/nope');
+      expect(page.headers.get('referrer-policy')).toBe('no-referrer');
+      expect(page.headers.get('x-frame-options')).toBe('SAMEORIGIN');
+    });
+  });
+});
+
+describe('freeVideosPerDay', () => {
+  it('reads a whole number and falls back to the default', () => {
+    expect(freeVideosPerDay('5')).toBe(5);
+    expect(freeVideosPerDay('0')).toBe(0);
+    expect(freeVideosPerDay(undefined)).toBe(DEFAULT_FREE_VIDEOS_PER_DAY);
+    expect(freeVideosPerDay('lots')).toBe(DEFAULT_FREE_VIDEOS_PER_DAY);
+    expect(freeVideosPerDay('-1')).toBe(DEFAULT_FREE_VIDEOS_PER_DAY);
   });
 });

@@ -1,6 +1,7 @@
 import { useClerk } from '@clerk/expo';
 import type { Me } from '@insidejoke/shared';
 import { router, useFocusEffect } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import {
@@ -8,14 +9,15 @@ import {
   Body,
   Button,
   Card,
+  Checkbox,
   Eyebrow,
   Heading,
   Loading,
   Rise,
   Screen,
 } from '../components/ui';
-import { resetAnalytics } from '../lib/analytics';
-import { useApi, useResource } from '../lib/api';
+import { analyticsEnabled, resetAnalytics, setAnalyticsEnabled } from '../lib/analytics';
+import { API_URL, useApi, useResource } from '../lib/api';
 import { colors as c } from '../lib/theme';
 
 export default function Settings() {
@@ -23,6 +25,7 @@ export default function Settings() {
   const call = useApi();
   const me = useResource<Me>('/me');
   const [busy, setBusy] = useState(false);
+  const [stats, setStats] = useState(analyticsEnabled);
   const { reload } = me;
   useFocusEffect(
     useCallback(() => {
@@ -49,6 +52,34 @@ export default function Settings() {
       ],
     );
   }
+
+  function deleteAccount() {
+    Alert.alert(
+      'Delete your account?',
+      "Your selfie, your groups with your friends' selfies, and every video you made are deleted for good. Unused video credits are lost.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(true);
+            try {
+              await call('/me', { method: 'DELETE' });
+            } catch {
+              setBusy(false);
+              Alert.alert("We couldn't delete your account", 'Please try again.');
+              return;
+            }
+            resetAnalytics();
+            await signOut();
+          },
+        },
+      ],
+    );
+  }
+
+  const open = (path: string) => void WebBrowser.openBrowserAsync(`${API_URL}${path}`);
 
   if (!me.data) return <Loading />;
   const credits = me.data.videoCredits;
@@ -85,6 +116,16 @@ export default function Settings() {
           {me.data.hasSelfie && (
             <Button title="Remove my face" kind="danger" onPress={removeFace} busy={busy} />
           )}
+          <Checkbox
+            checked={stats}
+            onToggle={() => {
+              setStats(!stats);
+              void setAnalyticsEnabled(!stats);
+            }}
+            style={styles.stats}
+          >
+            <Body>Share usage stats to help improve the app</Body>
+          </Checkbox>
           <Button
             title="Sign out"
             kind="quiet"
@@ -95,6 +136,16 @@ export default function Settings() {
           />
         </View>
       </Rise>
+      <Rise index={3}>
+        <View style={styles.footer}>
+          <View style={styles.links}>
+            <Button title="Privacy" kind="quiet" onPress={() => open('/privacy')} />
+            <Button title="Terms" kind="quiet" onPress={() => open('/terms')} />
+            <Button title="Support" kind="quiet" onPress={() => open('/support')} />
+          </View>
+          <Button title="Delete account" kind="danger" onPress={deleteAccount} busy={busy} />
+        </View>
+      </Rise>
     </Screen>
   );
 }
@@ -103,4 +154,7 @@ const styles = StyleSheet.create({
   profile: { alignItems: 'center', gap: 12, marginTop: 8 },
   ring: { padding: 4, borderRadius: 64, borderWidth: 2, borderColor: c.accent },
   wallet: { gap: 4 },
+  stats: { alignItems: 'center', paddingVertical: 6 },
+  footer: { gap: 4, marginTop: 24 },
+  links: { flexDirection: 'row', justifyContent: 'center' },
 });

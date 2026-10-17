@@ -11,15 +11,15 @@ export const AI_PROVIDERS = [
     name: 'Anthropic (Claude)',
     credit: 'Writes and checks',
     receives:
-      'the chat text you paste, to write the script, and a few frames of the finished video, to check it is safe before delivery',
+      'the chat text you paste, to write the script and check it before filming, and a few frames of the finished video, to check it is safe before delivery',
   },
   {
     name: 'fal (MiniMax video model)',
     credit: 'Films',
-    receives: 'the selfies of the cast, to make the video',
+    receives: 'the selfies of the cast and the written scene, to make the video',
   },
 ] as const;
-export const AI_CONSENT_VERSION = 'ai-v2';
+export const AI_CONSENT_VERSION = 'ai-v3';
 
 /** What someone agrees to when they add their own selfie. Stored with every face. */
 export const FACE_CONSENT_VERSION = 'face-v2';
@@ -33,8 +33,12 @@ export const VIDEO_PRODUCT_ID = 'video_15s';
 
 export const MAX_GROUP_NAME = 60;
 export const MAX_DISPLAY_NAME = 40;
+/** A group chat's worth of friends; an invite link stops working past it. */
+export const MAX_GROUP_MEMBERS = 30;
 /** How many times a user can ask for a fresh script for one video. */
 export const MAX_SCRIPT_ATTEMPTS = 3;
+/** How many scripts one account can have written a day, new videos and fresh tries together. */
+export const MAX_SCRIPTS_PER_DAY = 10;
 
 export const createGroupSchema = z.object({
   name: z.string().trim().min(1).max(MAX_GROUP_NAME),
@@ -62,8 +66,33 @@ export const aiConsentSchema = z.object({
   version: z.literal(AI_CONSENT_VERSION),
   adult: z.literal(true),
 });
+/** Why someone reports a finished video (guideline 1.2). */
+export const REPORT_REASONS = {
+  offensive: 'Offensive or harmful',
+  no_consent: "Someone in it didn't agree to be in it",
+  other: 'Something else',
+} as const;
+export type ReportReason = keyof typeof REPORT_REASONS;
+export const reportVideoSchema = z.object({
+  reason: z.enum(Object.keys(REPORT_REASONS) as [ReportReason]),
+});
+
 export const pushTokenSchema = z.object({ token: z.string().min(1).max(200) });
-export const updateScriptSchema = z.object({ script: scriptSchema });
+/** The longest spoken line or subtitle a user can type in; the line goes into the video prompt. */
+export const MAX_SCRIPT_LINE = 200;
+/**
+ * Only the spoken lines and subtitles of an edit are kept (the API takes everything else from the
+ * stored script), so they are the only text that needs a ceiling.
+ */
+export const updateScriptSchema = z.object({
+  script: scriptSchema.refine(
+    (s) =>
+      s.beats.every(
+        (b) => b.line.length <= MAX_SCRIPT_LINE && b.subtitle.length <= MAX_SCRIPT_LINE,
+      ),
+    { message: `lines and subtitles are at most ${MAX_SCRIPT_LINE} characters` },
+  ),
+});
 
 export type UploadTarget = { key: string; uploadUrl: string };
 
@@ -109,4 +138,7 @@ export type VideoDetail = VideoSummary & {
 
 /** What approving the script costs the user: their free video, a credit, or a purchase. */
 export type ApproveResult =
-  { status: 'paid'; paidWith: 'free' | 'credit' } | { error: 'payment_required' };
+  | { status: 'paid'; paidWith: 'free' | 'credit' }
+  | { error: 'payment_required' }
+  /** Today's free videos for everyone are gone; the user keeps theirs for tomorrow. */
+  | { error: 'free_limit' };

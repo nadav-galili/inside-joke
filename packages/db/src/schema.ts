@@ -148,7 +148,11 @@ export const generationJobs = pgTable(
     createdAt: timestamptz('created_at').notNull().defaultNow(),
     updatedAt: timestamptz('updated_at').notNull().defaultNow(),
   },
-  (t) => [index('generation_jobs_claim_idx').on(t.status, t.runAfter)],
+  (t) => [
+    index('generation_jobs_claim_idx').on(t.status, t.runAfter),
+    // The daily caps count a step's jobs over the last day.
+    index('generation_jobs_step_created_idx').on(t.step, t.createdAt),
+  ],
 );
 
 /** RevenueCat webhook log, idempotent by transaction. */

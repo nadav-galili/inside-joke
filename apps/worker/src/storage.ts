@@ -1,4 +1,10 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { readFile } from 'node:fs/promises';
 
@@ -7,6 +13,9 @@ export type Storage = {
   /** A short-lived URL a provider such as fal can fetch the object from. */
   readUrl(key: string, expiresInSeconds?: number): Promise<string>;
   uploadFile(key: string, file: string, contentType: string): Promise<void>;
+  remove(key: string): Promise<void>;
+  /** Every object under a prefix, with when it was written. */
+  list(prefix: string): AsyncIterable<{ key: string; modifiedAt: Date }>;
 };
 
 export type R2Config = {
@@ -36,6 +45,25 @@ export function r2Storage(config: R2Config): Storage {
           ContentType: contentType,
         }),
       );
+    },
+    remove: async (key) => {
+      await s3.send(new DeleteObjectCommand({ Bucket: config.bucket, Key: key }));
+    },
+    async *list(prefix) {
+      let token: string | undefined;
+      do {
+        const page = await s3.send(
+          new ListObjectsV2Command({
+            Bucket: config.bucket,
+            Prefix: prefix,
+            ContinuationToken: token,
+          }),
+        );
+        for (const o of page.Contents ?? []) {
+          if (o.Key && o.LastModified) yield { key: o.Key, modifiedAt: o.LastModified };
+        }
+        token = page.NextContinuationToken;
+      } while (token);
     },
   };
 }

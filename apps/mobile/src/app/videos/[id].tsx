@@ -1,4 +1,13 @@
-import type { ApproveResult, Beat, Me, Script, VideoDetail } from '@insidejoke/shared';
+import {
+  MAX_SCRIPT_LINE,
+  REPORT_REASONS,
+  type ApproveResult,
+  type Beat,
+  type Me,
+  type ReportReason,
+  type Script,
+  type VideoDetail,
+} from '@insidejoke/shared';
 import { File, Paths } from 'expo-file-system';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -25,7 +34,7 @@ import {
   Title,
 } from '../../components/ui';
 import { track } from '../../lib/analytics';
-import { useApi, useResource } from '../../lib/api';
+import { ApiError, LIMIT_MESSAGES, useApi, useResource } from '../../lib/api';
 import { buyVideo, videoPrice } from '../../lib/purchases';
 import { isInProgress, STATUS_LABELS, STYLE_LABELS } from '../../lib/styles';
 import { colors as c, radius } from '../../lib/theme';
@@ -224,9 +233,9 @@ function ScriptReview({
       setTorn(true);
       await new Promise((r) => setTimeout(r, 700));
       await reload();
-    } catch {
+    } catch (e) {
       setTorn(false);
-      setError('Something went wrong. Please try again.');
+      setError(limitMessage(e) ?? 'Something went wrong. Please try again.');
     } finally {
       setBusy(null);
     }
@@ -238,8 +247,8 @@ function ScriptReview({
       await call(`/videos/${video.id}/regenerate`, { method: 'POST' });
       track('script_regenerated');
       await reload();
-    } catch {
-      setError("We couldn't write a new script.");
+    } catch (e) {
+      setError(limitMessage(e) ?? "We couldn't write a new script.");
     } finally {
       setBusy(null);
     }
@@ -326,6 +335,10 @@ function ScriptReview({
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 /** A line of dialogue you can edit in place, highlighted like a marker while you type. */
+/** The app's words for a daily cap the API hit, or undefined for any other failure. */
+const limitMessage = (e: unknown) =>
+  e instanceof ApiError && e.code ? LIMIT_MESSAGES[e.code] : undefined;
+
 function ScriptInput({
   value,
   onChangeText,
@@ -344,6 +357,7 @@ function ScriptInput({
       <TextInput
         value={value}
         onChangeText={onChangeText}
+        maxLength={MAX_SCRIPT_LINE}
         multiline
         scrollEnabled={false}
         accessibilityLabel={label}
@@ -392,6 +406,31 @@ function Player({ video }: { video: VideoDetail }) {
     }
   }
 
+  async function report(reason: ReportReason) {
+    try {
+      await call(`/videos/${video.id}/report`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+      Alert.alert(
+        'Thanks for telling us',
+        'We review every report. You can also delete the video.',
+      );
+    } catch {
+      Alert.alert("We couldn't send your report", 'Please try again.');
+    }
+  }
+
+  function askReport() {
+    Alert.alert('Report this video', 'What is wrong with it?', [
+      ...Object.entries(REPORT_REASONS).map(([reason, text]) => ({
+        text,
+        onPress: () => void report(reason as ReportReason),
+      })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }
+
   function remove() {
     Alert.alert('Delete this video?', "It's deleted for good.", [
       { text: 'Cancel', style: 'cancel' },
@@ -413,6 +452,7 @@ function Player({ video }: { video: VideoDetail }) {
           <ErrorText>{error}</ErrorText>
           <Button title="Send to the group" onPress={share} busy={busy} />
           <Button title="Delete video" kind="danger" onPress={remove} />
+          <Button title="Report a problem" kind="quiet" onPress={askReport} />
         </>
       }
     >
