@@ -1,6 +1,6 @@
 import { createDb } from '@insidejoke/db';
 import * as Sentry from '@sentry/node';
-import { claimNextJob } from './claim.ts';
+import { claimNextJob, REAP_MS, requeueStaleJobs, STALE_AFTER_SECONDS } from './claim.ts';
 import { expoNotify } from './notify.ts';
 import { claudeModerator } from './providers/moderator.ts';
 import { claudeScriptWriter } from './providers/script-writer.ts';
@@ -40,8 +40,16 @@ process.on('SIGTERM', () => {
   stopping = true;
 });
 
+let lastReap = 0;
+
 console.log('worker polling for jobs');
 while (!stopping) {
+  if (Date.now() - lastReap > REAP_MS) {
+    lastReap = Date.now();
+    const requeued = await requeueStaleJobs(db, STALE_AFTER_SECONDS);
+    if (requeued.length > 0)
+      console.warn(`requeued jobs a stopped worker left: ${requeued.join(', ')}`);
+  }
   const job = await claimNextJob(db);
   if (job) {
     await runJob(db, job, steps, notify);

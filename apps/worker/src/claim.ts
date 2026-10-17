@@ -1,5 +1,5 @@
 import { generationJobs, type Db } from '@insidejoke/db';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 export type ClaimedJob = typeof generationJobs.$inferSelect;
 
@@ -25,4 +25,45 @@ export async function claimNextJob(db: Db): Promise<ClaimedJob | null> {
   if (!id) return null;
   const [job] = await db.select().from(generationJobs).where(eq(generationJobs.id, id));
   return job ?? null;
+}
+
+/** How often a running job is touched, so the reaper can tell it from an orphan. */
+export const HEARTBEAT_MS = 30_000;
+/** A running job untouched this long lost its worker: a few missed heartbeats, to allow for lag. */
+export const STALE_AFTER_SECONDS = 120;
+/** How often a worker looks for jobs a stopped worker left running. */
+export const REAP_MS = 60_000;
+
+/**
+ * Matches the job only while this run still owns it: running, at this attempt. If the job was
+ * requeued because its worker looked dead, the old run's late writes must not count.
+ */
+export const ownedByRun = (job: Pick<ClaimedJob, 'id' | 'attempts'>) =>
+  and(
+    eq(generationJobs.id, job.id),
+    eq(generationJobs.status, 'running'),
+    eq(generationJobs.attempts, job.attempts),
+  );
+
+/** Marks the job as alive. The database's clock, like the reaper's, so worker clock skew is moot. */
+export async function touchJob(db: Db, job: Pick<ClaimedJob, 'id' | 'attempts'>) {
+  await db
+    .update(generationJobs)
+    .set({ updatedAt: sql`now()` })
+    .where(ownedByRun(job));
+}
+
+/**
+ * Puts back jobs whose worker stopped mid-way (a redeploy or a crash). A live worker touches its
+ * job every `HEARTBEAT_MS`, so a running job that hasn't been touched for longer is orphaned. Its
+ * `request_id` stays, so a video step resumes the take it already paid for.
+ */
+export async function requeueStaleJobs(db: Db, staleAfterSeconds: number): Promise<string[]> {
+  const requeued = await db.execute<{ id: string }>(sql`
+    update ${generationJobs}
+    set status = 'queued', run_after = now(), updated_at = now()
+    where status = 'running' and updated_at < now() - make_interval(secs => ${staleAfterSeconds})
+    returning id
+  `);
+  return requeued.map((r) => r.id);
 }
