@@ -16,7 +16,7 @@ import {
 } from '../../components/ui';
 import { track } from '../../lib/analytics';
 import { useApi } from '../../lib/api';
-import { takeSelfie, uploadSelfie } from '../../lib/selfie';
+import { pickSelfie, takeSelfie, uploadSelfie } from '../../lib/selfie';
 import { colors as c, radius, type } from '../../lib/theme';
 
 /** The user takes their own selfie and agrees to how it's used. This is their consent record. */
@@ -33,6 +33,12 @@ export default function Selfie() {
     if (taken) setUri(taken);
     else
       setError('Inside Joke needs the camera to take your selfie. You can allow it in Settings.');
+  }
+
+  async function pick() {
+    setError('');
+    const picked = await pickSelfie();
+    if (picked) setUri(picked);
   }
 
   async function save() {
@@ -67,7 +73,10 @@ export default function Selfie() {
               <Button title="Retake" kind="quiet" onPress={shoot} />
             </>
           ) : (
-            <Button title="Take selfie" onPress={shoot} />
+            <>
+              <Button title="Take selfie" onPress={shoot} />
+              <Button title="Choose from photos" kind="quiet" onPress={pick} />
+            </>
           )}
         </>
       }
@@ -76,7 +85,10 @@ export default function Selfie() {
         <View style={{ gap: 10, marginTop: 12 }}>
           <Eyebrow>Casting call</Eyebrow>
           <Title>Star in your videos</Title>
-          <Body muted>Take a clear selfie facing the camera. Only you can add your face.</Body>
+          <Body muted>
+            Take a clear selfie facing the camera, or pick one from your photos. Only you can add
+            your face.
+          </Body>
         </View>
       </Rise>
       <Rise index={1}>

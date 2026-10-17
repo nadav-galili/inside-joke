@@ -30,8 +30,8 @@ The same stack as Mibo (nadav-galili/chores): a pnpm + Turborepo monorepo on Nod
 
 ## Rules
 
-- Faces come only from the person's own selfie with a consent record. Never add a way to upload
-  someone else's photo.
+- Faces come only from the person's own selfie (camera or their photo library) with a consent
+  record in which they confirm it is a photo of them. Never add a way to upload someone else's photo.
 - The raw chat text is deleted once the script is approved and is never returned by the API.
 - Styles are genres, never named films or shows.
 - Name the AI providers in the in-app consent screen before any text or photo leaves the device

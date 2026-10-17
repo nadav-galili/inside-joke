@@ -3,15 +3,27 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import type { UploadTarget } from '@insidejoke/shared';
 
-/**
- * Opens the front camera for a new selfie. Only the camera, never the photo library: the face has
- * to be the person's own, taken now.
- */
+/** Opens the front camera for a new selfie. */
 export async function takeSelfie(): Promise<string | null> {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
   if (!permission.granted) return null;
   const result = await ImagePicker.launchCameraAsync({
     cameraType: ImagePicker.CameraType.front,
+    mediaTypes: ['images'],
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 1,
+  });
+  if (result.canceled || !result.assets[0]) return null;
+  return result.assets[0].uri;
+}
+
+/**
+ * Lets the person pick a selfie they already have. The consent checkbox that follows is where they
+ * confirm it is a photo of them, taken by them.
+ */
+export async function pickSelfie(): Promise<string | null> {
+  const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
     allowsEditing: true,
     aspect: [1, 1],
