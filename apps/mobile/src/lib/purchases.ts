@@ -1,9 +1,27 @@
 import { VIDEO_PRODUCT_ID, type Me } from '@insidejoke/shared';
-import Purchases, { PURCHASES_ERROR_CODE } from 'react-native-purchases';
+import Purchases, { LOG_LEVEL, PURCHASES_ERROR_CODE } from 'react-native-purchases';
 import { track } from './analytics';
 
-const apiKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
+/**
+ * In development builds, RevenueCat's Test Store key (if set) wins, so purchases work in the
+ * Simulator without Apple. Release builds always use the App Store key: the SDK crashes a release
+ * build that has a Test Store key.
+ */
+const apiKey =
+  (__DEV__ && process.env.EXPO_PUBLIC_REVENUECAT_TEST_KEY) ||
+  process.env.EXPO_PUBLIC_REVENUECAT_IOS_KEY;
 let configuredFor: string | null = null;
+
+/**
+ * RevenueCat logs a cancelled purchase as an error, which shows a red error screen in development.
+ * Cancelling is normal and `buyVideo` handles it, so it's logged quietly.
+ */
+function revenueCatLog(level: LOG_LEVEL, message: string) {
+  const line = `[RevenueCat] ${message}`;
+  if (level === LOG_LEVEL.ERROR && !/purchase was cancelled/i.test(message)) console.error(line);
+  else if (level === LOG_LEVEL.WARN) console.warn(line);
+  else if (level !== LOG_LEVEL.DEBUG && level !== LOG_LEVEL.VERBOSE) console.log(line);
+}
 
 /**
  * Sets RevenueCat up for this user. RevenueCat's app user id is our user id, so its webhook can
@@ -11,8 +29,12 @@ let configuredFor: string | null = null;
  */
 export function configurePurchases(userId: string) {
   if (!apiKey || configuredFor === userId) return;
-  if (configuredFor === null) Purchases.configure({ apiKey, appUserID: userId });
-  else void Purchases.logIn(userId);
+  if (configuredFor === null) {
+    Purchases.setLogHandler(revenueCatLog);
+    Purchases.configure({ apiKey, appUserID: userId });
+  } else {
+    void Purchases.logIn(userId);
+  }
   configuredFor = userId;
 }
 
