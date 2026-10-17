@@ -1,0 +1,1 @@
+CREATE INDEX "generation_jobs_step_created_idx" ON "generation_jobs" USING btree ("step","created_at");

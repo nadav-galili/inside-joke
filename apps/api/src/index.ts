@@ -1,7 +1,7 @@
 import { createClerkClient } from '@clerk/backend';
 import { serve } from '@hono/node-server';
 import * as Sentry from '@sentry/node';
-import { createApp } from './app.ts';
+import { createApp, freeVideosPerDay } from './app.ts';
 import { clerkVerifyToken } from './auth.ts';
 import { createDb, runMigrations } from '@insidejoke/db';
 import { r2Storage } from './storage.ts';
@@ -31,6 +31,7 @@ const app = createApp(db, {
   }),
   publicUrl: required('PUBLIC_URL').replace(/\/$/, ''),
   revenueCatWebhookAuth: required('REVENUECAT_WEBHOOK_AUTH'),
+  freeVideosPerDay: freeVideosPerDay(),
   deleteAuthUser: async (id) => {
     await clerk.users.deleteUser(id);
   },
