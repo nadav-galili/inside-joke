@@ -102,12 +102,10 @@ export default function SignIn() {
         <View style={styles.hero}>
           <Image source={wordmark} accessibilityLabel="Inside Joke" style={styles.wordmark} />
           <Text style={[type.hero, { color: c.text }]}>
-            Your group chat,{'\n'}
-            <Text style={{ color: c.accent }}>now showing.</Text>
+            Take your seat.{'\n'}
+            <Text style={{ color: c.accent }}>The show's about to start.</Text>
           </Text>
-          <Body muted>
-            Turn the chat's best moment into a 15-second film starring your friends.
-          </Body>
+          <Body muted>Sign in to start a group and make its first film.</Body>
         </View>
       </Rise>
       <Rise index={4}>
@@ -174,7 +172,7 @@ export default function SignIn() {
 const POSTERS = [
   { genre: 'telenovela', title: 'Who Finished the Hummus', tilt: '-9deg', drop: 18 },
   { genre: 'action_trailer_80s', title: 'The Bluff of the Century', tilt: '0deg', drop: 0 },
-  { genre: 'nature_documentary', title: 'Late Again, Dani', tilt: '9deg', drop: 18 },
+  { genre: 'nature_documentary', title: 'Late Again, Theo', tilt: '9deg', drop: 18 },
 ] as const;
 
 const styles = StyleSheet.create({

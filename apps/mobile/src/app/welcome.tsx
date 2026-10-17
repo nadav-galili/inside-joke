@@ -1,8 +1,7 @@
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useState, type ComponentType } from 'react';
-import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
@@ -22,12 +21,12 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import icon from '../../assets/icon.png';
 import wordmark from '../../assets/wordmark.png';
-import { GenrePoster, ScriptPage, scriptText } from '../components/cinema';
-import { Avatar, Body, Button, Eyebrow, Pill, Title } from '../components/ui';
+import { GenrePoster, PosterBackdrop, ScriptPage, scriptText } from '../components/cinema';
+import { Avatar, Body, Button, Eyebrow, Pill, Pressy, Title } from '../components/ui';
 import { track } from '../lib/analytics';
 import { SAMPLES } from '../lib/samples';
 import { STYLE_LABELS } from '../lib/styles';
-import { colors as c, fonts, GENRE_COLORS, radius, space, type } from '../lib/theme';
+import { colors as c, fonts, radius, space, type } from '../lib/theme';
 
 type Stage = ComponentType<{ active: boolean; height: number }>;
 
@@ -62,9 +61,9 @@ export default function Welcome() {
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.top}>
         <Image source={wordmark} accessibilityLabel="Inside Joke" style={styles.wordmark} />
-        <Pressable accessibilityRole="button" hitSlop={12} onPress={() => finish(true)}>
+        <Pressy accessibilityRole="button" hitSlop={12} onPress={() => finish(true)}>
           <Text style={styles.signIn}>Sign in</Text>
-        </Pressable>
+        </Pressy>
       </View>
       <Animated.ScrollView
         ref={pager}
@@ -77,6 +76,7 @@ export default function Welcome() {
       >
         {PAGES.map((p, i) => (
           <View key={p.title} style={[styles.page, { width }]}>
+            {/* Every page's stage is the same size, so the first one measures for all. */}
             <View
               style={styles.stage}
               onLayout={i === 0 ? (e) => setStageHeight(e.nativeEvent.layout.height) : undefined}
@@ -92,7 +92,11 @@ export default function Welcome() {
         ))}
       </Animated.ScrollView>
       <View style={styles.footer}>
-        <View style={styles.dots} accessibilityLabel={`Page ${page + 1} of ${PAGES.length}`}>
+        <View
+          style={styles.dots}
+          accessible
+          accessibilityLabel={`Page ${page + 1} of ${PAGES.length}`}
+        >
           {PAGES.map((p, i) => (
             <Dot key={p.title} index={i} x={x} width={width} />
           ))}
@@ -130,16 +134,18 @@ function useBeat(active: boolean, ms: number, max: number) {
 // Page 1: the samples, shown the way a finished video looks on a phone.
 
 const SAMPLE_MS = 2800;
-const CLIP_MS = 6000;
 
+/** Plays through the samples on its own, or one per tap when the user has reduced motion on. */
 const SampleReel: Stage = ({ active, height }) => {
+  const still = useReducedMotion();
   const [i, setI] = useState(0);
   const sample = SAMPLES[i]!;
+  const advance = () => setI((v) => (v + 1) % SAMPLES.length);
   useEffect(() => {
-    if (!active) return;
-    const t = setTimeout(() => setI((v) => (v + 1) % SAMPLES.length), duration(sample));
+    if (!active || still) return;
+    const t = setTimeout(advance, SAMPLE_MS);
     return () => clearTimeout(t);
-  }, [active, i, sample]);
+  }, [active, still, i]);
 
   const frameH = Math.min(height - space.lg, 400);
   const frameW = (frameH * 9) / 16;
@@ -164,20 +170,24 @@ const SampleReel: Stage = ({ active, height }) => {
           ]}
         />
       ))}
-      <View style={[styles.frame, { width: frameW, height: frameH }]}>
+      <Pressy
+        haptic="tick"
+        onPress={advance}
+        style={[styles.frame, { width: frameW, height: frameH }]}
+      >
         <Animated.View
           key={sample.title}
           entering={FadeIn.duration(450)}
           exiting={FadeOut.duration(450)}
           style={StyleSheet.absoluteFill}
         >
-          {sample.clip ? <Clip source={sample.clip} /> : <SampleCard sample={sample} />}
+          <SampleCard sample={sample} />
         </Animated.View>
         <View style={styles.progress}>
           {SAMPLES.map((s, k) => (
             <View key={s.title} style={styles.progressTrack}>
               {k < i && <View style={[styles.progressFill, { width: '100%' }]} />}
-              {k === i && <Fill running={active} ms={duration(s)} />}
+              {k === i && <Fill running={active && !still} />}
             </View>
           ))}
         </View>
@@ -185,49 +195,34 @@ const SampleReel: Stage = ({ active, height }) => {
           <Image source={icon} style={styles.markIcon} />
           <Text style={styles.markText}>Inside Joke</Text>
         </View>
-      </View>
+      </Pressy>
     </View>
   );
 };
 
-const duration = (s: (typeof SAMPLES)[number]) => (s.clip ? CLIP_MS : SAMPLE_MS);
-
 /** The bar that fills while the current sample plays. */
-function Fill({ running, ms }: { running: boolean; ms: number }) {
-  const p = useSharedValue(0);
+function Fill({ running }: { running: boolean }) {
+  const progress = useSharedValue(0);
   useEffect(() => {
-    p.value = 0;
-    if (running) p.value = withTiming(1, { duration: ms, easing: Easing.linear });
-  }, [running, ms, p]);
-  const style = useAnimatedStyle(() => ({ width: `${p.value * 100}%` }));
+    progress.value = 0;
+    if (running) progress.value = withTiming(1, { duration: SAMPLE_MS, easing: Easing.linear });
+  }, [running, progress]);
+  const style = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
   return <Animated.View style={[styles.progressFill, style]} />;
 }
 
-/** A sample without a clip: its genre's poster colours, slowly pushing in, with a subtitle. */
+/** A sample as a phone-sized poster, slowly pushing in, with its line set as a subtitle. */
 function SampleCard({ sample }: { sample: (typeof SAMPLES)[number] }) {
-  const g = GENRE_COLORS[sample.genre];
-  const still = useReducedMotion();
   const zoom = useSharedValue(1);
   useEffect(() => {
-    if (!still) zoom.value = withTiming(1.14, { duration: SAMPLE_MS + 900 });
-  }, [still, zoom]);
-  const push = useAnimatedStyle(() => ({ transform: [{ scale: zoom.value }] }));
+    // Reanimated skips this when the user has reduced motion on.
+    zoom.value = withTiming(1.14, { duration: SAMPLE_MS + 900 });
+  }, [zoom]);
+  const pushIn = useAnimatedStyle(() => ({ transform: [{ scale: zoom.value }] }));
   return (
     <View style={StyleSheet.absoluteFill}>
-      <Animated.View style={[StyleSheet.absoluteFill, push]}>
-        <LinearGradient
-          colors={[g.light, g.base, g.deep]}
-          locations={[0, 0.5, 1]}
-          start={{ x: 0.2, y: 0 }}
-          end={{ x: 0.8, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <LinearGradient
-          colors={['#ffffff66', '#ffffff00']}
-          start={{ x: 1, y: 0 }}
-          end={{ x: 0.3, y: 0.5 }}
-          style={StyleSheet.absoluteFill}
-        />
+      <Animated.View style={[StyleSheet.absoluteFill, pushIn]}>
+        <PosterBackdrop genre={sample.genre} />
       </Animated.View>
       <View style={styles.cardBody}>
         <Text style={styles.cardTag}>{STYLE_LABELS[sample.genre].label.toUpperCase()}</Text>
@@ -239,29 +234,13 @@ function SampleCard({ sample }: { sample: (typeof SAMPLES)[number] }) {
   );
 }
 
-function Clip({ source }: { source: number }) {
-  const player = useVideoPlayer(source, (p) => {
-    p.muted = true;
-    p.loop = true;
-    p.play();
-  });
-  return (
-    <VideoView
-      player={player}
-      style={StyleSheet.absoluteFill}
-      contentFit="cover"
-      nativeControls={false}
-    />
-  );
-}
-
 // Page 2: the moment in the group chat.
 
 const CHAT = [
-  { name: 'Ziv', text: 'who ate my hummus' },
-  { name: 'Dani', text: 'define ate' },
-  { name: 'Maya', text: "dani there's a spoon in your bag" },
-  { name: 'Dani', text: 'i was holding it for a friend' },
+  { name: 'Theo', text: 'who ate my hummus' },
+  { name: 'Gus', text: 'define ate' },
+  { name: 'Bea', text: "gus there's a spoon in your bag" },
+  { name: 'Gus', text: 'i was holding it for a friend' },
 ];
 const PUNCHLINE = CHAT.length - 1;
 
@@ -294,7 +273,7 @@ const ChatMoment: Stage = ({ active }) => {
 
 // Page 3: the cast, each friend lighting up as they add their own selfie.
 
-const CAST = ['You', 'Ziv', 'Dani', 'Maya'];
+const CAST = ['You', 'Theo', 'Gus', 'Bea'];
 
 const CastCall: Stage = ({ active }) => {
   const joined = useBeat(active, 650, CAST.length);
@@ -325,11 +304,12 @@ const CastCall: Stage = ({ active }) => {
 
 // Page 4: pick a genre, and the script appears.
 
-const GENRES = ['telenovela', 'action_trailer_80s', 'nature_documentary', 'sports_commentary'] as const;
+const GENRES = SAMPLES.map((s) => s.genre);
 
 const GenrePick: Stage = ({ active, height }) => {
-  const beat = useBeat(active, 700, 2);
-  const posterH = Math.max(64, Math.min(104, (height - 170) / 2));
+  const step = useBeat(active, 700, 2);
+  // Two rows of posters, with the script page overlapping the second by 28.
+  const posterH = Math.max(72, Math.min(104, (height - 120) / 2));
   return (
     <View style={styles.pick} accessibilityElementsHidden>
       <View style={styles.grid}>
@@ -338,16 +318,16 @@ const GenrePick: Stage = ({ active, height }) => {
             key={g}
             genre={g}
             height={posterH}
-            selected={beat >= 1 && g === 'telenovela'}
+            selected={step >= 1 && g === 'telenovela'}
             style={styles.gridPoster}
           />
         ))}
       </View>
-      {beat >= 2 && (
+      {step >= 2 && (
         <Animated.View entering={FadeInUp.springify().damping(16)} style={styles.script}>
           <ScriptPage>
-            <Text style={scriptText.action}>Dani clutches a spoon. Thunder.</Text>
-            <Text style={scriptText.speaker}>Dani</Text>
+            <Text style={scriptText.action}>Gus clutches a spoon. Thunder.</Text>
+            <Text style={scriptText.speaker}>Gus</Text>
             <Text style={scriptText.line}>I was holding it for a friend.</Text>
           </ScriptPage>
         </Animated.View>
@@ -393,13 +373,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   wordmark: { width: 104, height: 104 * (172 / 524) },
-  signIn: { ...type.small, fontFamily: fonts.displayBold, fontSize: 15, color: c.text },
+  signIn: { fontFamily: fonts.displayBold, fontSize: 15, color: c.accent },
   page: { flex: 1, paddingHorizontal: 20 },
   stage: { flex: 1, justifyContent: 'center' },
   copy: { gap: 10, paddingTop: space.md, paddingBottom: space.sm, minHeight: 168 },
   footer: { paddingHorizontal: 20, paddingTop: space.sm, paddingBottom: space.sm, gap: space.lg },
   dots: { flexDirection: 'row', gap: 6, alignSelf: 'center' },
-  dot: { height: 7, borderRadius: 4, backgroundColor: c.accent },
+  dot: { height: 7, borderRadius: 4, backgroundColor: c.text },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
   behind: { position: 'absolute', opacity: 0.45 },
@@ -435,7 +415,7 @@ const styles = StyleSheet.create({
   markIcon: { width: 16, height: 16, borderRadius: 4 },
   markText: { fontFamily: fonts.display, fontSize: 11, color: '#ffffff' },
   cardBody: { position: 'absolute', left: 18, right: 18, top: '28%', gap: 8 },
-  cardTag: { fontFamily: fonts.scriptBold, fontSize: 11, letterSpacing: 1.4, color: '#1a0e16aa' },
+  cardTag: { fontFamily: fonts.scriptBold, fontSize: 11, letterSpacing: 1.4, color: `${c.bg}aa` },
   cardTitle: {
     fontFamily: fonts.display,
     fontSize: 30,
@@ -471,7 +451,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     flexShrink: 1,
   },
-  bubblePicked: { borderColor: c.accent, backgroundColor: c.raised },
+  bubblePicked: { borderColor: c.text, backgroundColor: c.raised },
   bubbleName: { fontFamily: fonts.displayBold, fontSize: 12, color: c.muted, marginBottom: 2 },
   bubbleText: { ...type.body, color: c.text },
   thisOne: {
