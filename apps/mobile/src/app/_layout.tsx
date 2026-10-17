@@ -41,6 +41,10 @@ function Routes() {
         animation: 'default',
       }}
     >
+      <Stack.Screen
+        name="trailer"
+        options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }}
+      />
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
         <Stack.Screen name="sign-in" options={{ title: '' }} />

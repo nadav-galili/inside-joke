@@ -23,6 +23,7 @@ const posthog = key
  */
 export type FunnelEvent =
   | 'welcome_finished'
+  | 'trailer_opened'
   | 'ai_consent_given'
   | 'selfie_added'
   | 'group_created'

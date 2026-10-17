@@ -89,6 +89,16 @@ export default function Welcome() {
               <Eyebrow>{p.eyebrow}</Eyebrow>
               <Title>{p.title}</Title>
               <Body muted>{p.body}</Body>
+              {i === 0 && (
+                <Pressy
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={() => router.push('/trailer')}
+                  style={styles.tour}
+                >
+                  <Text style={styles.tourText}>▶ Take the 27-second tour</Text>
+                </Pressy>
+              )}
             </View>
           </View>
         ))}
@@ -462,6 +472,8 @@ const styles = StyleSheet.create({
   logo: { width: 34, height: 34, borderRadius: 9 },
   brandName: { fontFamily: fonts.display, fontSize: 18, letterSpacing: -0.4, color: c.text },
   signIn: { fontFamily: fonts.displayBold, fontSize: 15, color: c.accent },
+  tour: { alignSelf: 'flex-start', paddingVertical: 4 },
+  tourText: { fontFamily: fonts.displayBold, fontSize: 15, color: c.accent },
   page: { flex: 1, paddingHorizontal: 20 },
   stage: { flex: 1, justifyContent: 'center' },
   copy: { gap: 10, paddingTop: space.md, paddingBottom: space.sm, minHeight: 168 },
