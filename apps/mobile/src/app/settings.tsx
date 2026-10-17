@@ -8,13 +8,14 @@ import {
   Body,
   Button,
   Card,
+  Checkbox,
   Eyebrow,
   Heading,
   Loading,
   Rise,
   Screen,
 } from '../components/ui';
-import { resetAnalytics } from '../lib/analytics';
+import { analyticsEnabled, resetAnalytics, setAnalyticsEnabled } from '../lib/analytics';
 import { useApi, useResource } from '../lib/api';
 import { colors as c } from '../lib/theme';
 
@@ -23,6 +24,7 @@ export default function Settings() {
   const call = useApi();
   const me = useResource<Me>('/me');
   const [busy, setBusy] = useState(false);
+  const [stats, setStats] = useState(analyticsEnabled);
   const { reload } = me;
   useFocusEffect(
     useCallback(() => {
@@ -85,6 +87,16 @@ export default function Settings() {
           {me.data.hasSelfie && (
             <Button title="Remove my face" kind="danger" onPress={removeFace} busy={busy} />
           )}
+          <Checkbox
+            checked={stats}
+            onToggle={() => {
+              setStats(!stats);
+              void setAnalyticsEnabled(!stats);
+            }}
+            style={styles.stats}
+          >
+            <Body>Share usage stats to help improve the app</Body>
+          </Checkbox>
           <Button
             title="Sign out"
             kind="quiet"
@@ -103,4 +115,5 @@ const styles = StyleSheet.create({
   profile: { alignItems: 'center', gap: 12, marginTop: 8 },
   ring: { padding: 4, borderRadius: 64, borderWidth: 2, borderColor: c.accent },
   wallet: { gap: 4 },
+  stats: { alignItems: 'center', paddingVertical: 6 },
 });

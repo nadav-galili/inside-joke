@@ -1,11 +1,17 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import type { Script } from '@insidejoke/shared';
 import { readFile } from 'node:fs/promises';
 import { z } from 'zod/v4';
 
 export type ModerationResult = { safe: boolean; reason: string; costUsd: number; model: string };
 /** Checks frames of a finished video before anyone sees it. */
 export type Moderator = (framePaths: string[]) => Promise<ModerationResult>;
+/**
+ * Checks the approved script's words before anything is filmed. The user can rewrite every line,
+ * and the lines are spoken aloud, which the frame check can't hear.
+ */
+export type ScriptModerator = (script: Script) => Promise<ModerationResult>;
 
 export const MODERATION_MODEL = 'claude-haiku-5-5';
 /** Claude Haiku 5.5 list prices per token (USD), for cost tracking only. */
@@ -48,6 +54,45 @@ export function claudeModerator(client = new Anthropic()): Moderator {
       response.usage.input_tokens * INPUT_USD_PER_TOKEN +
       response.usage.output_tokens * OUTPUT_USD_PER_TOKEN;
     // A refusal to review is treated as a block: nothing unreviewed is delivered.
+    if (response.stop_reason === 'refusal' || !response.parsed_output) {
+      return { safe: false, reason: 'the review was refused', costUsd, model: MODERATION_MODEL };
+    }
+    return { ...response.parsed_output, costUsd, model: MODERATION_MODEL };
+  };
+}
+
+const SCRIPT_SYSTEM = `You review the script of a short AI-generated comedy video before it is filmed. The cast are adult friends who each added their own selfie and agreed to appear; the person ordering it may have rewritten any line.
+
+Mark it unsafe if any spoken line, subtitle or action contains: sexual content; anything involving a child; threats, or violence meant seriously against a cast member; slurs or hate against a group; a claim that a cast member committed a real crime or has a medical condition, written as if true; or private details such as a phone number, address or password.
+Teasing, roasting, slapstick, swearing between friends and obvious exaggeration are fine.
+Give a one-sentence reason either way.`;
+
+/** The words of a script, as the reviewer reads them. */
+function scriptText(script: Script): string {
+  const beats = script.beats.map(
+    (b) =>
+      `[${b.fromSecond}-${b.toSecond}s] ACTION: ${b.action}\nLINE (${b.speakerRole ?? 'narrator'}): ${b.line}\nSUBTITLE: ${b.subtitle}`,
+  );
+  return [`TITLE: ${script.title}`, `SETTING: ${script.setting}`, ...beats].join('\n\n');
+}
+
+export function claudeScriptModerator(client = new Anthropic()): ScriptModerator {
+  return async (script) => {
+    const response = await client.messages.parse({
+      model: MODERATION_MODEL,
+      max_tokens: 1000,
+      output_config: { format: zodOutputFormat(verdictSchema) },
+      system: SCRIPT_SYSTEM,
+      messages: [
+        {
+          role: 'user',
+          content: `<script>\n${scriptText(script)}\n</script>\n\nIs this script safe to film?`,
+        },
+      ],
+    });
+    const costUsd =
+      response.usage.input_tokens * INPUT_USD_PER_TOKEN +
+      response.usage.output_tokens * OUTPUT_USD_PER_TOKEN;
     if (response.stop_reason === 'refusal' || !response.parsed_output) {
       return { safe: false, reason: 'the review was refused', costUsd, model: MODERATION_MODEL };
     }

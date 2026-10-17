@@ -18,6 +18,11 @@ export type VideoGenerator = (request: VideoRequest) => Promise<GeneratedVideo>;
 export const VIDEO_MODEL = 'minimax/h3/reference-to-video';
 /** fal's price for this endpoint, checked 16 Oct 2026. Used for cost tracking only. */
 const USD_PER_SECOND = 0.05;
+/**
+ * fal keeps generated files on a public URL forever unless told otherwise. The raw take shows the
+ * cast's faces, and `finish` downloads it within minutes, so fal deletes it after a day.
+ */
+const FAL_OUTPUT_LIFETIME = '1d';
 
 export function falVideoGenerator(credentials: string): VideoGenerator {
   const fal = createFalClient({ credentials });
@@ -31,6 +36,7 @@ export function falVideoGenerator(credentials: string): VideoGenerator {
         aspect_ratio: '9:16',
         prompt_expansion_mode: 'fast',
       },
+      storageSettings: { expiresIn: FAL_OUTPUT_LIFETIME },
     });
     const video = (result.data as { video?: { url?: string } }).video;
     if (!video?.url) throw new Error(`fal ${VIDEO_MODEL} returned no video (${result.requestId})`);

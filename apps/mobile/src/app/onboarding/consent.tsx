@@ -15,7 +15,7 @@ import {
   Title,
 } from '../../components/ui';
 import { colors as c } from '../../lib/theme';
-import { track } from '../../lib/analytics';
+import { setAnalyticsEnabled, track } from '../../lib/analytics';
 import { useApi } from '../../lib/api';
 
 /**
@@ -25,6 +25,8 @@ import { useApi } from '../../lib/api';
 export default function AiConsent() {
   const call = useApi();
   const [adult, setAdult] = useState(false);
+  // Optional and off until ticked: GDPR doesn't count a pre-ticked box as consent.
+  const [stats, setStats] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -35,6 +37,7 @@ export default function AiConsent() {
         method: 'POST',
         body: JSON.stringify({ version: AI_CONSENT_VERSION, adult: true }),
       });
+      await setAnalyticsEnabled(stats);
       track('ai_consent_given');
       router.replace('/');
     } catch {
@@ -48,6 +51,11 @@ export default function AiConsent() {
       footer={
         <>
           <ErrorText>{error}</ErrorText>
+          <Checkbox checked={stats} onToggle={() => setStats(!stats)} style={styles.adult}>
+            <Body>
+              Optional: share usage stats (which screens you use) to help us improve the app.
+            </Body>
+          </Checkbox>
           <Checkbox checked={adult} onToggle={() => setAdult(!adult)} style={styles.adult}>
             <Body>I'm 18 or older.</Body>
           </Checkbox>
