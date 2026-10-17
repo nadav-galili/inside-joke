@@ -1,3 +1,8 @@
 packages:
   - apps/*
   - packages/*
+
+# The app crashes when react-dom differs from react, and with the hoisted
+# layout a library's own react-dom can win, so pin it to the app's react.
+overrides:
+  react-dom: 19.2.3
