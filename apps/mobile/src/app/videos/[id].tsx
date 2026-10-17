@@ -170,6 +170,7 @@ function ScriptReview({
   const [draft, setDraft] = useState<Script>(video.script!);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState<'approve' | 'regenerate' | null>(null);
+  const [torn, setTorn] = useState(false);
   const [error, setError] = useState('');
   const [storePrice, setStorePrice] = useState<string | null>(null);
   useEffect(() => {
@@ -219,8 +220,12 @@ function ScriptReview({
       }
       if ('error' in result) throw new Error('approve failed after purchase');
       track('script_approved', { paidWith: result.paidWith });
+      // Let the ticket stub tear before the screen moves on to filming.
+      setTorn(true);
+      await new Promise((r) => setTimeout(r, 700));
       await reload();
     } catch {
+      setTorn(false);
       setError('Something went wrong. Please try again.');
     } finally {
       setBusy(null);
@@ -258,8 +263,9 @@ function ScriptReview({
             price={price.price}
             caption={price.caption}
             onPress={approve}
-            busy={busy === 'approve'}
+            busy={busy === 'approve' && !torn}
             disabled={busy !== null}
+            torn={torn}
           />
           {video.canRegenerate && (
             <Button

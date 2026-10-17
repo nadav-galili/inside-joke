@@ -23,13 +23,9 @@ const page = (title: string, body: ReturnType<typeof html>) =>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="robots" content="noindex" />
         <title>${title}</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Courier+Prime:wght@700&display=swap"
-        />
         <style>
-          /* The app's "Opening Night" look: velvet ground, house-light text, one amber bulb. */
+          /* The app's "Opening Night" look: velvet ground, house-light text, one amber bulb. System
+             fonts only, so a friend's browser contacts no third party before they agree to anything. */
           :root {
             color-scheme: dark;
             --velvet: #1a0e16;
@@ -40,7 +36,7 @@ const page = (title: string, body: ReturnType<typeof html>) =>
             --dust: #bba2ab;
             --bulb: #ffb53d;
             --on-bulb: #2a1405;
-            --display: 'Bricolage Grotesque', 'Avenir Next', system-ui, sans-serif;
+            --display: 'Avenir Next', system-ui, sans-serif;
           }
           * {
             box-sizing: border-box;
@@ -58,8 +54,7 @@ const page = (title: string, body: ReturnType<typeof html>) =>
           }
           .eyebrow {
             font:
-              700 12px/1 'Courier Prime',
-              ui-monospace,
+              700 12px/1 ui-monospace,
               monospace;
             letter-spacing: 0.14em;
             text-transform: uppercase;
@@ -80,8 +75,7 @@ const page = (title: string, body: ReturnType<typeof html>) =>
             display: block;
             margin: 24px 0 8px;
             font:
-              700 12px/1 'Courier Prime',
-              ui-monospace,
+              700 12px/1 ui-monospace,
               monospace;
             letter-spacing: 0.12em;
             text-transform: uppercase;

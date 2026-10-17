@@ -5,6 +5,7 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import {
   Body,
   Button,
+  Checkbox,
   ErrorText,
   Eyebrow,
   Pill,
@@ -106,20 +107,13 @@ export default function Selfie() {
       )}
       {uri && (
         <Rise>
-          <Pressy
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: agreed }}
-            haptic="tick"
-            onPress={() => setAgreed(!agreed)}
+          <Checkbox
+            checked={agreed}
+            onToggle={() => setAgreed(!agreed)}
             style={[styles.consent, agreed && { borderColor: c.accent }]}
           >
-            <View style={[styles.box, agreed && styles.boxOn]}>
-              {agreed && <Text style={styles.boxMark}>✓</Text>}
-            </View>
-            <Body small style={{ flex: 1 }}>
-              {FACE_CONSENT_TEXT}
-            </Body>
-          </Pressy>
+            <Body small>{FACE_CONSENT_TEXT}</Body>
+          </Checkbox>
         </Rise>
       )}
     </Screen>
@@ -164,15 +158,4 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     padding: 16,
   },
-  box: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: c.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  boxOn: { backgroundColor: c.accent, borderColor: c.accent },
-  boxMark: { color: c.onAccent, fontSize: 14, fontWeight: '900' },
 });
