@@ -1,6 +1,6 @@
 import type { VideoStyle } from '@insidejoke/shared';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   StyleSheet,
@@ -111,9 +111,12 @@ export function Ticket({
   torn?: boolean;
   notchColor?: string;
 }) {
-  const tear = useSharedValue(0);
+  const tear = useSharedValue(torn ? 1 : 0);
+  const wasTorn = useRef(torn);
   useEffect(() => {
-    if (torn) success();
+    // Celebrate only the moment it tears, not a ticket that mounts already torn.
+    if (torn && !wasTorn.current) success();
+    wasTorn.current = torn;
     tear.value = withSpring(torn ? 1 : 0, { damping: 14 });
   }, [torn, tear]);
   const stub = useAnimatedStyle(() => ({

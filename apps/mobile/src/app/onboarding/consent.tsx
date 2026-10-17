@@ -9,7 +9,7 @@ import {
   ErrorText,
   Eyebrow,
   Heading,
-  Pressy,
+  Checkbox,
   Rise,
   Screen,
   Title,
@@ -48,18 +48,9 @@ export default function AiConsent() {
       footer={
         <>
           <ErrorText>{error}</ErrorText>
-          <Pressy
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: adult }}
-            haptic="tick"
-            onPress={() => setAdult(!adult)}
-            style={styles.adult}
-          >
-            <View style={[styles.box, adult && styles.boxOn]}>
-              {adult && <Text style={styles.boxMark}>✓</Text>}
-            </View>
-            <Body style={{ flex: 1 }}>I'm 18 or older.</Body>
-          </Pressy>
+          <Checkbox checked={adult} onToggle={() => setAdult(!adult)} style={styles.adult}>
+            <Body>I'm 18 or older.</Body>
+          </Checkbox>
           <Button title="I agree, let's go" onPress={agree} busy={busy} disabled={!adult} />
         </>
       }
@@ -77,7 +68,7 @@ export default function AiConsent() {
         {AI_PROVIDERS.map((p, i) => (
           <Rise key={p.name} index={i + 1}>
             <Card style={styles.credit}>
-              <Eyebrow color={c.muted}>{CREDITS[i] ?? 'With'}</Eyebrow>
+              <Eyebrow color={c.muted}>{p.credit}</Eyebrow>
               <Heading>{p.name}</Heading>
               <Body muted>Gets {p.receives}.</Body>
             </Card>
@@ -100,9 +91,6 @@ export default function AiConsent() {
   );
 }
 
-/** Credit lines for the providers, in the order AI_PROVIDERS lists them. */
-const CREDITS = ['Written by', 'Filmed by'];
-
 const PROMISES = [
   "They use it only to make your video and don't train on it.",
   'We delete the chat text once you approve the script.',
@@ -122,16 +110,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tickMark: { color: c.accent, fontSize: 12, fontWeight: '900' },
-  adult: { flexDirection: 'row', gap: 12, alignItems: 'center', paddingVertical: 6 },
-  box: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: c.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  boxOn: { backgroundColor: c.accent, borderColor: c.accent },
-  boxMark: { color: c.onAccent, fontSize: 14, fontWeight: '900' },
+  adult: { alignItems: 'center', paddingVertical: 6 },
 });

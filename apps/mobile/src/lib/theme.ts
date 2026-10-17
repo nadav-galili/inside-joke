@@ -22,12 +22,6 @@ export const colors = {
   success: '#5cc489',
   scrim: '#00000088',
 };
-export type Colors = typeof colors;
-
-/** The palette. Kept as a hook so screens don't care that the app has a single theme. */
-export function useColors(): Colors {
-  return colors;
-}
 
 /** Each genre owns a colour that tints its poster and nothing else. */
 export const GENRE_COLORS: Record<VideoStyle, { base: string; light: string; deep: string }> = {

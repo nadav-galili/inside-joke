@@ -23,13 +23,9 @@ const page = (title: string, body: ReturnType<typeof html>) =>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="robots" content="noindex" />
         <title>${title}</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Courier+Prime:wght@700&display=swap"
-        />
         <style>
-          /* The app's "Opening Night" look: velvet ground, house-light text, one amber bulb. */
+          /* The app's "Opening Night" look: velvet ground, house-light text, one amber bulb. System
+             fonts only, so a friend's browser contacts no third party before they agree to anything. */
           :root {
             color-scheme: dark;
             --velvet: #1a0e16;

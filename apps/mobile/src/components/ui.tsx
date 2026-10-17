@@ -260,6 +260,34 @@ export function Card({
   );
 }
 
+/** A tickable box with its label beside it; the label is part of the tap target. */
+export function Checkbox({
+  checked,
+  onToggle,
+  children,
+  style,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <Pressy
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+      haptic="tick"
+      onPress={onToggle}
+      style={[styles.checkRow, style]}
+    >
+      <View style={[styles.box, checked && styles.boxOn]}>
+        {checked && <Text style={styles.boxMark}>✓</Text>}
+      </View>
+      <View style={{ flex: 1 }}>{children}</View>
+    </Pressy>
+  );
+}
+
 /** A small status label. `live` adds a blinking bulb for work that is still happening. */
 export function Pill({ label, live }: { label: string; live?: boolean }) {
   return (
@@ -437,4 +465,16 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: c.bg },
+  checkRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start' },
+  box: {
+    width: 24,
+    height: 24,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: c.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  boxOn: { backgroundColor: c.accent, borderColor: c.accent },
+  boxMark: { color: c.onAccent, fontSize: 14, fontWeight: '900' },
 });

@@ -3,15 +3,21 @@ import { scriptSchema, type Script, type VideoStatus, type VideoStyle } from './
 
 /**
  * The services a user's data goes to, named on the consent screen before anything leaves the
- * device (App Store guideline 5.1.2(i)). Change the version whenever this text changes.
+ * device (App Store guideline 5.1.2(i)). `credit` is the short role shown above the name in the app.
+ * Change the version whenever the `receives` text changes.
  */
 export const AI_PROVIDERS = [
   {
     name: 'Anthropic (Claude)',
+    credit: 'Writes and checks',
     receives:
       'the chat text you paste, to write the script, and a few frames of the finished video, to check it is safe before delivery',
   },
-  { name: 'fal (MiniMax video model)', receives: 'the selfies of the cast, to make the video' },
+  {
+    name: 'fal (MiniMax video model)',
+    credit: 'Films',
+    receives: 'the selfies of the cast, to make the video',
+  },
 ] as const;
 export const AI_CONSENT_VERSION = 'ai-v2';
 
