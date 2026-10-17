@@ -26,3 +26,18 @@ export async function claimNextJob(db: Db): Promise<ClaimedJob | null> {
   const [job] = await db.select().from(generationJobs).where(eq(generationJobs.id, id));
   return job ?? null;
 }
+
+/**
+ * Puts back jobs whose worker stopped mid-way (a redeploy or a crash). A live worker touches its
+ * job every `HEARTBEAT_MS`, so a running job that hasn't been touched for longer is orphaned. Its
+ * `request_id` stays, so a video step resumes the take it already paid for.
+ */
+export async function requeueStaleJobs(db: Db, staleAfterSeconds: number): Promise<string[]> {
+  const requeued = await db.execute<{ id: string }>(sql`
+    update ${generationJobs}
+    set status = 'queued', run_after = now(), updated_at = now()
+    where status = 'running' and updated_at < now() - make_interval(secs => ${staleAfterSeconds})
+    returning id
+  `);
+  return requeued.map((r) => r.id);
+}

@@ -139,6 +139,51 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
     expect(row!.status).toBe('failed');
   });
 
+  it('records the fal request as soon as it starts, and resumes it after a worker restart', async () => {
+    const { video, cast } = await seedVideo(db);
+    await db
+      .update(videos)
+      .set({ script: sampleScript(cast) })
+      .where(eq(videos.id, video.id));
+    const requests: VideoRequest[] = [];
+    let recorded: string | null | undefined;
+    const steps = createSteps(db, {
+      writeScript: async () => {
+        throw new Error('unused');
+      },
+      generateVideo: async (req) => {
+        requests.push(req);
+        const requestId = req.resumeRequestId ?? 'req_new';
+        if (!req.resumeRequestId) {
+          await req.onSubmitted?.(requestId);
+          const [row] = await db
+            .select()
+            .from(generationJobs)
+            .where(eq(generationJobs.videoId, video.id));
+          recorded = row!.requestId;
+          throw new Error('worker stopped');
+        }
+        return { videoUrl: 'https://fal.test/v.mp4', costUsd: 0.75, model: 'm', requestId };
+      },
+      storage: { readUrl: async (k) => k, uploadFile: async () => {} },
+      moderate: async () => ({ safe: true, reason: '', costUsd: 0, model: 'm' }),
+    });
+    await db.insert(generationJobs).values({ videoId: video.id, step: 'video' });
+    const first = (await claimNextJob(db))!;
+    await expect(steps.video(first)).rejects.toThrow('worker stopped');
+    expect(recorded).toBe('req_new');
+
+    // The reaper puts it back with its request; the next run waits on that take.
+    await db
+      .update(generationJobs)
+      .set({ status: 'queued' })
+      .where(eq(generationJobs.id, first.id));
+    await runJob(db, (await claimNextJob(db))!, steps);
+    expect(requests.map((r) => r.resumeRequestId ?? null)).toEqual([null, 'req_new']);
+    const [row] = await db.select().from(videos).where(eq(videos.id, video.id));
+    expect(row!.status).toBe('generating');
+  });
+
   it('never delivers a video that fails moderation', async () => {
     const { video, cast } = await seedVideo(db);
     await db

@@ -1,7 +1,14 @@
 import { createFalClient } from '@fal-ai/client';
 import { VIDEO_SECONDS } from '@insidejoke/shared';
 
-export type VideoRequest = { prompt: string; referenceImageUrls: string[] };
+export type VideoRequest = {
+  prompt: string;
+  referenceImageUrls: string[];
+  /** A fal request this job already paid for, to wait on instead of starting a new one. */
+  resumeRequestId?: string | null;
+  /** Called as soon as fal accepts the request, so a restarted worker can resume it. */
+  onSubmitted?: (requestId: string) => Promise<void>;
+};
 export type GeneratedVideo = {
   videoUrl: string;
   costUsd: number;
@@ -21,17 +28,28 @@ const USD_PER_SECOND = 0.05;
 
 export function falVideoGenerator(credentials: string): VideoGenerator {
   const fal = createFalClient({ credentials });
-  return async ({ prompt, referenceImageUrls }) => {
-    const result = await fal.subscribe(VIDEO_MODEL, {
-      input: {
-        prompt,
-        reference_image_urls: referenceImageUrls,
-        duration: VIDEO_SECONDS,
-        resolution: '768P',
-        aspect_ratio: '9:16',
-        prompt_expansion_mode: 'fast',
-      },
+  return async ({ prompt, referenceImageUrls, resumeRequestId, onSubmitted }) => {
+    let requestId = resumeRequestId;
+    if (!requestId) {
+      const queued = await fal.queue.submit(VIDEO_MODEL, {
+        input: {
+          prompt,
+          reference_image_urls: referenceImageUrls,
+          duration: VIDEO_SECONDS,
+          resolution: '768P',
+          aspect_ratio: '9:16',
+          prompt_expansion_mode: 'fast',
+        },
+      });
+      requestId = queued.request_id;
+      await onSubmitted?.(requestId);
+    }
+    await fal.queue.subscribeToStatus(VIDEO_MODEL, {
+      requestId,
+      mode: 'polling',
+      pollInterval: 5000,
     });
+    const result = await fal.queue.result(VIDEO_MODEL, { requestId });
     const video = (result.data as { video?: { url?: string } }).video;
     if (!video?.url) throw new Error(`fal ${VIDEO_MODEL} returned no video (${result.requestId})`);
     return {

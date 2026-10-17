@@ -11,6 +11,10 @@ import {
 } from './steps.ts';
 
 export const MAX_ATTEMPTS = 3;
+/** How often a running job is touched, so `requeueStaleJobs` can tell it from an orphan. */
+export const HEARTBEAT_MS = 30_000;
+/** A running job untouched this long lost its worker. A few missed heartbeats, to allow for lag. */
+export const STALE_AFTER_SECONDS = 120;
 /** Wait before a retry, doubling per attempt: 30s, 60s. */
 const retryDelaySeconds = (attempts: number) => 30 * 2 ** (attempts - 1);
 
@@ -41,10 +45,25 @@ export async function runJob(
       .where(eq(generationJobs.id, job.id));
     return;
   }
+  // This run owns the job only while the row is still running at this attempt. If a worker was
+  // presumed dead and its job requeued, the other run's late result must not count twice.
+  const mine = and(
+    eq(generationJobs.id, job.id),
+    eq(generationJobs.status, 'running'),
+    eq(generationJobs.attempts, job.attempts),
+  );
+  const heartbeat = setInterval(() => {
+    db.update(generationJobs)
+      .set({ updatedAt: new Date() })
+      .where(mine)
+      .catch((e: unknown) => console.error(`heartbeat for job ${job.id} failed`, e));
+  }, HEARTBEAT_MS);
   try {
+    // A job that keeps taking its worker down with it (each crash is an attempt) stops here.
+    if (job.attempts > MAX_ATTEMPTS) throw new Error(`gave up after ${job.attempts - 1} attempts`);
     const result = await handlers[job.step](job);
     const live = await db.transaction(async (tx) => {
-      await tx
+      const owned = await tx
         .update(generationJobs)
         .set({
           status: 'done',
@@ -55,7 +74,9 @@ export async function runJob(
           requestId: result.requestId ?? null,
           updatedAt: new Date(),
         })
-        .where(eq(generationJobs.id, job.id));
+        .where(mine)
+        .returning({ id: generationJobs.id });
+      if (owned.length === 0) return false;
       const updated = await tx
         .update(videos)
         .set({
@@ -80,18 +101,21 @@ export async function runJob(
     console.error(`job ${job.id} (${job.step}) failed on attempt ${job.attempts}`, e);
     Sentry.captureException(e, { tags: { step: job.step }, extra: { jobId: job.id } });
     const retry = job.attempts < MAX_ATTEMPTS && !isPermanent(e);
-    await db
+    const owned = await db
       .update(generationJobs)
       .set({
         status: retry ? 'queued' : 'failed',
         error: message,
+        // A failed provider request isn't resumed: the retry starts a fresh one.
+        requestId: null,
         runAfter: retry
           ? new Date(Date.now() + retryDelaySeconds(job.attempts) * 1000)
           : job.runAfter,
         updatedAt: new Date(),
       })
-      .where(eq(generationJobs.id, job.id));
-    if (!retry) {
+      .where(mine)
+      .returning({ id: generationJobs.id });
+    if (owned.length > 0 && !retry) {
       const paid = job.step !== 'script';
       await db.transaction(async (tx) => {
         const [video] = await tx
@@ -112,5 +136,7 @@ export async function runJob(
       });
       if (paid) await notify(job.videoId, 'failed');
     }
+  } finally {
+    clearInterval(heartbeat);
   }
 }

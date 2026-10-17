@@ -110,6 +110,14 @@ export function createSteps(db: Db, deps: StepDeps): Record<GenerationStep, Step
       const generated = await deps.generateVideo({
         prompt: buildVideoPrompt(video.script, video.style),
         referenceImageUrls,
+        // Set when a worker stopped mid-take: the take was paid for, so wait on it instead.
+        resumeRequestId: job.requestId,
+        onSubmitted: async (requestId) => {
+          await db
+            .update(generationJobs)
+            .set({ requestId, updatedAt: new Date() })
+            .where(eq(generationJobs.id, job.id));
+        },
       });
       return {
         output: { videoUrl: generated.videoUrl },

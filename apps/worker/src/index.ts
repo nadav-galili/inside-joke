@@ -1,11 +1,11 @@
 import { createDb } from '@insidejoke/db';
 import * as Sentry from '@sentry/node';
-import { claimNextJob } from './claim.ts';
+import { claimNextJob, requeueStaleJobs } from './claim.ts';
 import { expoNotify } from './notify.ts';
 import { claudeModerator } from './providers/moderator.ts';
 import { claudeScriptWriter } from './providers/script-writer.ts';
 import { falVideoGenerator } from './providers/video-generator.ts';
-import { runJob } from './run-job.ts';
+import { runJob, STALE_AFTER_SECONDS } from './run-job.ts';
 import { createSteps } from './steps.ts';
 import { r2Storage } from './storage.ts';
 
@@ -40,8 +40,18 @@ process.on('SIGTERM', () => {
   stopping = true;
 });
 
+/** How often to look for jobs a stopped worker left running. */
+const REAP_MS = 60_000;
+let lastReap = 0;
+
 console.log('worker polling for jobs');
 while (!stopping) {
+  if (Date.now() - lastReap > REAP_MS) {
+    lastReap = Date.now();
+    const requeued = await requeueStaleJobs(db, STALE_AFTER_SECONDS);
+    if (requeued.length > 0)
+      console.warn(`requeued jobs a stopped worker left: ${requeued.join(', ')}`);
+  }
   const job = await claimNextJob(db);
   if (job) {
     await runJob(db, job, steps, notify);
