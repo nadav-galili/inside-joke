@@ -1,13 +1,13 @@
-import { router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState, type ComponentType } from 'react';
+import { VIDEO_STYLES, type VideoStyle } from '@insidejoke/shared';
+import { router, useFocusEffect } from 'expo-router';
+import { useVideoPlayer, VideoView } from 'expo-video';
+import { useCallback, useEffect, useState, type ComponentType } from 'react';
 import { Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
   FadeIn,
   FadeInUp,
-  FadeOut,
   interpolate,
   useAnimatedRef,
   useAnimatedScrollHandler,
@@ -20,10 +20,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import logo from '../../assets/logo.png';
-import { GenrePoster, PosterBackdrop, ScriptPage, scriptText } from '../components/cinema';
+import { GenrePoster, ScriptPage, scriptText } from '../components/cinema';
 import { Avatar, Body, Button, Eyebrow, Pill, Pressy, Title } from '../components/ui';
 import { track } from '../lib/analytics';
-import { SAMPLES } from '../lib/samples';
+import { SAMPLES, type Sample } from '../lib/samples';
 import { STYLE_LABELS } from '../lib/styles';
 import { colors as c, fonts, radius, space, type } from '../lib/theme';
 
@@ -103,7 +103,7 @@ export default function Welcome() {
             <Dot key={p.title} index={i} x={x} width={width} />
           ))}
         </View>
-        <Button title={last ? 'Get started' : 'Next'} onPress={next} />
+        <Button title={last ? 'Make one starring your friends' : 'Next'} onPress={next} />
       </View>
     </View>
   );
@@ -133,107 +133,190 @@ function useBeat(active: boolean, ms: number, max: number) {
   return n;
 }
 
-// Page 1: the samples, shown the way a finished video looks on a phone.
+// Page 1: the samples. Each starts as the group chat it came from, then cuts hard to the film.
 
-const SAMPLE_MS = 2800;
+/** How long the chat shows before the cut to the film. */
+const CHAT_MS = 1700;
+const BUBBLE_MS = 380;
 
-/** Plays through the samples on its own, or one per tap when the user has reduced motion on. */
+/**
+ * Plays the samples one after another. A tap during the chat cuts straight to the film, a tap on
+ * the film skips to the next sample, and the chip turns the sound on. With reduced motion on, a sample loops until it's tapped instead of moving on.
+ */
 const SampleReel: Stage = ({ active, height }) => {
   const still = useReducedMotion();
+  const focused = useFocused();
+  const playing = active && focused;
   const [i, setI] = useState(0);
+  const [showFilm, setShowFilm] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const progress = useSharedValue(0);
   const sample = SAMPLES[i]!;
-  const advance = () => setI((v) => (v + 1) % SAMPLES.length);
-  useEffect(() => {
-    if (!active || still) return;
-    const t = setTimeout(advance, SAMPLE_MS);
-    return () => clearTimeout(t);
-  }, [active, still, i]);
+  // The chat comes back in the same update, so the next film never mounts for a frame.
+  const advance = useCallback(() => {
+    setShowFilm(false);
+    setI((v) => (v + 1) % SAMPLES.length);
+  }, []);
 
-  const frameH = Math.min(height - space.lg, 400);
+  useEffect(() => {
+    setShowFilm(false);
+    progress.value = 0;
+    if (!playing) return;
+    const t = setTimeout(() => setShowFilm(true), CHAT_MS);
+    return () => clearTimeout(t);
+  }, [playing, i, progress]);
+
+  // Room under the frame for the tagline.
+  const frameH = Math.min(height - 44, 460);
   const frameW = (frameH * 9) / 16;
-  const behind = [SAMPLES[(i + 1) % SAMPLES.length]!, SAMPLES[(i + 2) % SAMPLES.length]!];
   return (
-    <View style={styles.center} accessibilityElementsHidden>
-      {behind.map((s, k) => (
-        <GenrePoster
-          key={s.title}
-          genre={s.genre}
-          title={s.title}
-          height={frameH * 0.8}
-          style={[
-            styles.behind,
-            {
-              width: frameW * 0.8,
-              transform: [
-                { translateX: (k === 0 ? -1 : 1) * frameW * 0.42 },
-                { rotate: k === 0 ? '-8deg' : '8deg' },
-              ],
-            },
-          ]}
-        />
-      ))}
+    <View style={styles.center}>
       <Pressy
         haptic="tick"
-        onPress={advance}
+        onPress={showFilm ? advance : () => setShowFilm(true)}
+        accessibilityRole="button"
+        accessibilityLabel={`Sample video: ${sample.title}, a ${STYLE_LABELS[sample.genre].label.toLowerCase()}. Tap for the next one.`}
         style={[styles.frame, { width: frameW, height: frameH }]}
       >
-        <Animated.View
-          key={sample.title}
-          entering={FadeIn.duration(450)}
-          exiting={FadeOut.duration(450)}
-          style={StyleSheet.absoluteFill}
-        >
-          <SampleCard sample={sample} />
-        </Animated.View>
+        {showFilm && playing ? (
+          <Film
+            key={sample.title}
+            sample={sample}
+            muted={muted}
+            loop={still}
+            progress={progress}
+            onEnd={advance}
+          />
+        ) : (
+          <SampleChat key={sample.title} sample={sample} />
+        )}
         <View style={styles.progress}>
           {SAMPLES.map((s, k) => (
             <View key={s.title} style={styles.progressTrack}>
               {k < i && <View style={[styles.progressFill, { width: '100%' }]} />}
-              {k === i && <Fill running={active && !still} />}
+              {k === i && <Fill progress={progress} />}
             </View>
           ))}
         </View>
-        <View style={styles.mark}>
-          <Image source={logo} style={styles.markIcon} />
-          <Text style={styles.markText}>Inside Joke</Text>
-        </View>
+        {showFilm && playing && (
+          <Pressy
+            haptic="tick"
+            hitSlop={10}
+            onPress={() => setMuted((m) => !m)}
+            accessibilityRole="button"
+            accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
+            style={styles.sound}
+          >
+            <Text style={styles.soundText}>{muted ? 'Tap for sound' : 'Sound on'}</Text>
+          </Pressy>
+        )}
       </Pressy>
+      <Animated.Text key={sample.title} entering={FadeIn.duration(400)} style={styles.tagline}>
+        {sample.tagline}
+      </Animated.Text>
     </View>
   );
 };
 
-/** The bar that fills while the current sample plays. */
-function Fill({ running }: { running: boolean }) {
-  const progress = useSharedValue(0);
-  useEffect(() => {
-    progress.value = 0;
-    if (running) progress.value = withTiming(1, { duration: SAMPLE_MS, easing: Easing.linear });
-  }, [running, progress]);
-  const style = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
-  return <Animated.View style={[styles.progressFill, style]} />;
+/** Whether this screen is the one on top, so the sample stops playing under the sign-in screen. */
+function useFocused() {
+  const [focused, setFocused] = useState(true);
+  useFocusEffect(
+    useCallback(() => {
+      setFocused(true);
+      return () => setFocused(false);
+    }, []),
+  );
+  return focused;
 }
 
-/** A sample as a phone-sized poster, slowly pushing in, with its line set as a subtitle. */
-function SampleCard({ sample }: { sample: (typeof SAMPLES)[number] }) {
-  const zoom = useSharedValue(1);
-  useEffect(() => {
-    // Reanimated skips this when the user has reduced motion on.
-    zoom.value = withTiming(1.14, { duration: SAMPLE_MS + 900 });
-  }, [zoom]);
-  const pushIn = useAnimatedStyle(() => ({ transform: [{ scale: zoom.value }] }));
+/** The chat the sample came from, typed out bubble by bubble. */
+function SampleChat({ sample }: { sample: Sample }) {
+  const shown = useBeat(true, BUBBLE_MS, sample.chat.length);
   return (
-    <View style={StyleSheet.absoluteFill}>
-      <Animated.View style={[StyleSheet.absoluteFill, pushIn]}>
-        <PosterBackdrop genre={sample.genre} />
-      </Animated.View>
-      <View style={styles.cardBody}>
-        <Text style={styles.cardTag}>{STYLE_LABELS[sample.genre].label.toUpperCase()}</Text>
-        <Text style={styles.cardTitle}>{sample.title}</Text>
-      </View>
-      <LinearGradient colors={['#00000000', '#00000099']} style={styles.subtitleShade} />
-      <Text style={styles.subtitle}>{sample.subtitle}</Text>
+    <View style={styles.sampleChat}>
+      {sample.chat.slice(0, shown + 1).map((m, k) =>
+        'note' in m ? (
+          <Animated.Text key={k} entering={FadeIn.duration(300)} style={styles.chatNote}>
+            {m.note}
+          </Animated.Text>
+        ) : (
+          <Animated.View
+            key={k}
+            entering={FadeInUp.springify().damping(16)}
+            style={[styles.message, styles.sampleMessage]}
+          >
+            <Avatar name={m.name} size={26} />
+            <View style={styles.bubble}>
+              <Text style={styles.bubbleName}>{m.name}</Text>
+              <Text style={styles.bubbleText}>{m.text}</Text>
+            </View>
+          </Animated.View>
+        ),
+      )}
+      <Text style={styles.sampleGenre}>{STYLE_LABELS[sample.genre].label.toUpperCase()}</Text>
     </View>
   );
+}
+
+/** The film itself, over its first frame so the cut is instant while the video loads. */
+function Film({
+  sample,
+  muted,
+  loop,
+  progress,
+  onEnd,
+}: {
+  sample: Sample;
+  muted: boolean;
+  loop: boolean;
+  progress: SharedValue<number>;
+  onEnd: () => void;
+}) {
+  const player = useVideoPlayer(sample.video, (p) => {
+    p.muted = true;
+    p.loop = loop;
+    p.timeUpdateEventInterval = 0.25;
+    p.play();
+  });
+  useEffect(() => {
+    player.muted = muted;
+    player.loop = loop;
+  }, [player, muted, loop]);
+  useEffect(() => {
+    const time = player.addListener('timeUpdate', ({ currentTime }) => {
+      if (player.duration > 0) {
+        progress.value = withTiming(currentTime / player.duration, {
+          duration: 250,
+          easing: Easing.linear,
+        });
+      }
+    });
+    const end = player.addListener('playToEnd', () => {
+      if (!loop) onEnd();
+    });
+    return () => {
+      time.remove();
+      end.remove();
+    };
+  }, [player, progress, loop, onEnd]);
+  return (
+    <View style={StyleSheet.absoluteFill}>
+      <Image source={sample.poster} style={StyleSheet.absoluteFill} />
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        nativeControls={false}
+      />
+    </View>
+  );
+}
+
+/** The bar that fills while the current sample plays. */
+function Fill({ progress }: { progress: SharedValue<number> }) {
+  const style = useAnimatedStyle(() => ({ width: `${progress.value * 100}%` }));
+  return <Animated.View style={[styles.progressFill, style]} />;
 }
 
 // Page 2: the moment in the group chat.
@@ -306,7 +389,8 @@ const CastCall: Stage = ({ active }) => {
 
 // Page 4: pick a genre, and the script appears.
 
-const GENRES = SAMPLES.map((s) => s.genre);
+// Telenovela first, since it's the one picked.
+const GENRES: VideoStyle[] = ['telenovela', ...VIDEO_STYLES.filter((g) => g !== 'telenovela')];
 
 const GenrePick: Stage = ({ active, height }) => {
   const step = useBeat(active, 700, 2);
@@ -386,7 +470,6 @@ const styles = StyleSheet.create({
   dot: { height: 7, borderRadius: 4, backgroundColor: c.text },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  behind: { position: 'absolute', opacity: 0.45 },
   frame: {
     borderRadius: radius.xl,
     overflow: 'hidden',
@@ -407,39 +490,35 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   progressFill: { height: '100%', backgroundColor: '#ffffff' },
-  mark: {
+  sound: {
     position: 'absolute',
-    top: 22,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    opacity: 0.92,
+    bottom: 14,
+    alignSelf: 'center',
+    backgroundColor: '#000000aa',
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
-  markIcon: { width: 16, height: 16, borderRadius: 4 },
-  markText: { fontFamily: fonts.display, fontSize: 11, color: '#ffffff' },
-  cardBody: { position: 'absolute', left: 18, right: 18, top: '28%', gap: 8 },
-  cardTag: { fontFamily: fonts.scriptBold, fontSize: 11, letterSpacing: 1.4, color: `${c.bg}aa` },
-  cardTitle: {
+  soundText: { fontFamily: fonts.displayBold, fontSize: 13, color: '#ffffff' },
+  tagline: {
+    marginTop: space.md,
     fontFamily: fonts.display,
-    fontSize: 30,
-    lineHeight: 31,
-    letterSpacing: -0.8,
-    color: c.bg,
-  },
-  subtitleShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '35%' },
-  subtitle: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 22,
+    fontSize: 17,
+    letterSpacing: -0.3,
+    color: c.text,
     textAlign: 'center',
-    color: '#ffffff',
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '700',
-    textShadowColor: '#000000cc',
-    textShadowRadius: 6,
+  },
+  sampleChat: { flex: 1, justifyContent: 'center', gap: 8, paddingHorizontal: 12 },
+  sampleMessage: { maxWidth: '100%' },
+  chatNote: { ...type.small, color: c.faint, textAlign: 'center', fontStyle: 'italic' },
+  sampleGenre: {
+    position: 'absolute',
+    bottom: 18,
+    alignSelf: 'center',
+    fontFamily: fonts.scriptBold,
+    fontSize: 11,
+    letterSpacing: 1.4,
+    color: c.muted,
   },
 
   chat: { flex: 1, justifyContent: 'center', gap: 10 },
