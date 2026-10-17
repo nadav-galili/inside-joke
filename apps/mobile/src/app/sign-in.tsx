@@ -4,7 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import wordmark from '../../assets/wordmark.png';
+import logo from '../../assets/logo.png';
 import { GenrePoster } from '../components/cinema';
 import { Body, Button, ErrorText, Eyebrow, Field, Rise, Screen } from '../components/ui';
 import { colors as c, fonts, type } from '../lib/theme';
@@ -100,7 +100,7 @@ export default function SignIn() {
       </View>
       <Rise index={3}>
         <View style={styles.hero}>
-          <Image source={wordmark} accessibilityLabel="Inside Joke" style={styles.wordmark} />
+          <Image source={logo} accessibilityLabel="Inside Joke" style={styles.logo} />
           <Text style={[type.hero, { color: c.text }]}>
             Take your seat.{'\n'}
             <Text style={{ color: c.accent }}>The show's about to start.</Text>
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   posters: { flexDirection: 'row', justifyContent: 'center', marginTop: 24, marginBottom: 8 },
   poster: { width: 124, marginHorizontal: -10 },
   hero: { gap: 14 },
-  wordmark: { width: 168, height: 168 * (172 / 524), marginBottom: 4 },
+  logo: { width: 76, height: 76, borderRadius: 18, marginBottom: 4 },
   or: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 2 },
   rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: c.border },
   code: { fontFamily: fonts.display, fontSize: 28, letterSpacing: 8, textAlign: 'center' },

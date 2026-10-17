@@ -19,8 +19,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import icon from '../../assets/icon.png';
-import wordmark from '../../assets/wordmark.png';
+import logo from '../../assets/logo.png';
 import { GenrePoster, PosterBackdrop, ScriptPage, scriptText } from '../components/cinema';
 import { Avatar, Body, Button, Eyebrow, Pill, Pressy, Title } from '../components/ui';
 import { track } from '../lib/analytics';
@@ -60,7 +59,10 @@ export default function Welcome() {
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.top}>
-        <Image source={wordmark} accessibilityLabel="Inside Joke" style={styles.wordmark} />
+        <View style={styles.brand} accessible accessibilityLabel="Inside Joke">
+          <Image source={logo} style={styles.logo} />
+          <Text style={styles.brandName}>Inside Joke</Text>
+        </View>
         <Pressy accessibilityRole="button" hitSlop={12} onPress={() => finish(true)}>
           <Text style={styles.signIn}>Sign in</Text>
         </Pressy>
@@ -192,7 +194,7 @@ const SampleReel: Stage = ({ active, height }) => {
           ))}
         </View>
         <View style={styles.mark}>
-          <Image source={icon} style={styles.markIcon} />
+          <Image source={logo} style={styles.markIcon} />
           <Text style={styles.markText}>Inside Joke</Text>
         </View>
       </Pressy>
@@ -372,7 +374,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  wordmark: { width: 104, height: 104 * (172 / 524) },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logo: { width: 34, height: 34, borderRadius: 9 },
+  brandName: { fontFamily: fonts.display, fontSize: 18, letterSpacing: -0.4, color: c.text },
   signIn: { fontFamily: fonts.displayBold, fontSize: 15, color: c.accent },
   page: { flex: 1, paddingHorizontal: 20 },
   stage: { flex: 1, justifyContent: 'center' },

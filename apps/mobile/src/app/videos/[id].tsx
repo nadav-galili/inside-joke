@@ -365,7 +365,9 @@ function ScriptInput({
 /** Plays the finished video behind a curtain that opens, and shares the file through the share sheet. */
 function Player({ video }: { video: VideoDetail }) {
   const call = useApi();
-  const player = useVideoPlayer(video.playUrl, (p) => {
+  // The play link is signed afresh on every load; keep the first so a reload doesn't restart it.
+  const [playUrl] = useState(video.playUrl);
+  const player = useVideoPlayer(playUrl, (p) => {
     p.loop = true;
     p.play();
   });
