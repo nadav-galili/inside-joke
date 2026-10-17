@@ -2,7 +2,16 @@ import { MAX_DISPLAY_NAME, MAX_GROUP_NAME, type GroupSummary } from '@insidejoke
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
-import { Body, Button, ErrorText, Eyebrow, Field, Screen, Title } from '../../components/ui';
+import {
+  Body,
+  Button,
+  ErrorText,
+  Eyebrow,
+  Field,
+  Screen,
+  success,
+  Title,
+} from '../../components/ui';
 import { track } from '../../lib/analytics';
 import { useApi } from '../../lib/api';
 
@@ -13,7 +22,10 @@ export default function NewGroup() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  const missing = !name.trim() ? 'Name the group' : !myName.trim() ? 'Add your nickname' : null;
+
   async function create() {
+    if (missing || busy) return;
     setBusy(true);
     try {
       const group = await call<GroupSummary>('/groups', {
@@ -21,6 +33,7 @@ export default function NewGroup() {
         body: JSON.stringify({ name, myName }),
       });
       track('group_created');
+      success();
       router.replace(`/groups/${group.id}`);
     } catch {
       setError("We couldn't create the group. Please try again.");
@@ -34,10 +47,10 @@ export default function NewGroup() {
         <>
           <ErrorText>{error}</ErrorText>
           <Button
-            title="Create group"
+            title={missing ?? 'Create group'}
             onPress={create}
             busy={busy}
-            disabled={!name.trim() || !myName.trim()}
+            disabled={!!missing}
           />
         </>
       }
@@ -63,6 +76,7 @@ export default function NewGroup() {
         placeholder="Your nickname"
         maxLength={MAX_DISPLAY_NAME}
         returnKeyType="done"
+        onSubmitEditing={create}
       />
     </Screen>
   );

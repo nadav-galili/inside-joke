@@ -12,6 +12,7 @@ import {
   Pressy,
   Rise,
   Screen,
+  success,
   Title,
 } from '../../components/ui';
 import { track } from '../../lib/analytics';
@@ -27,18 +28,24 @@ export default function Selfie() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
+  /** A new photo needs its own confirmation, so the box unticks. */
+  function use(photo: string) {
+    setUri(photo);
+    setAgreed(false);
+  }
+
   async function shoot() {
     setError('');
     const taken = await takeSelfie();
-    if (taken) setUri(taken);
-    else
+    if (taken === 'denied')
       setError('Inside Joke needs the camera to take your selfie. You can allow it in Settings.');
+    else if (taken) use(taken);
   }
 
   async function pick() {
     setError('');
     const picked = await pickSelfie();
-    if (picked) setUri(picked);
+    if (picked) use(picked);
   }
 
   async function save() {
@@ -53,6 +60,7 @@ export default function Selfie() {
         body: JSON.stringify({ key: target.key, consentTextVersion: FACE_CONSENT_VERSION }),
       });
       track('selfie_added');
+      success();
       if (router.canGoBack()) router.back();
       else router.replace('/');
     } catch {
@@ -69,8 +77,17 @@ export default function Selfie() {
           <ErrorText>{error}</ErrorText>
           {uri ? (
             <>
-              <Button title="Save my selfie" onPress={save} busy={busy} disabled={!agreed} />
-              <Button title="Retake" kind="quiet" onPress={shoot} />
+              <Button
+                title={agreed ? 'Save my selfie' : "Confirm below that it's you"}
+                busyTitle="Saving your selfie…"
+                onPress={save}
+                busy={busy}
+                disabled={!agreed}
+              />
+              <View style={styles.redo}>
+                <Button title="Retake" kind="quiet" onPress={shoot} />
+                <Button title="Choose another" kind="quiet" onPress={pick} />
+              </View>
             </>
           ) : (
             <>
@@ -150,6 +167,7 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   frameFilled: { borderStyle: 'solid', borderWidth: 4 },
+  redo: { flexDirection: 'row', justifyContent: 'center' },
   photo: { width: '100%', height: '100%' },
   empty: { alignItems: 'center', gap: 14 },
   faceGuide: {

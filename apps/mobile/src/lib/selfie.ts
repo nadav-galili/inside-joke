@@ -3,10 +3,10 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import type { UploadTarget } from '@insidejoke/shared';
 
-/** Opens the front camera for a new selfie. */
-export async function takeSelfie(): Promise<string | null> {
+/** Opens the front camera for a new selfie. Null when they back out, 'denied' without camera access. */
+export async function takeSelfie(): Promise<string | 'denied' | null> {
   const permission = await ImagePicker.requestCameraPermissionsAsync();
-  if (!permission.granted) return null;
+  if (!permission.granted) return 'denied';
   const result = await ImagePicker.launchCameraAsync({
     cameraType: ImagePicker.CameraType.front,
     mediaTypes: ['images'],
