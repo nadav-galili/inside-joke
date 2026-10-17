@@ -12,11 +12,13 @@ import { File, Paths } from 'expo-file-system';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActionSheetIOS, Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import {
   Curtain,
   FilmLeader,
+  GenrePoster,
   ScriptPage,
   scriptText,
   Steps,
@@ -25,19 +27,24 @@ import {
 } from '../../components/cinema';
 import {
   Body,
+  Bulbs,
   Button,
   ErrorText,
   Eyebrow,
+  FaceStack,
   Loading,
+  Pressy,
   Rise,
   Screen,
+  success,
+  tick,
   Title,
 } from '../../components/ui';
 import { track } from '../../lib/analytics';
 import { ApiError, LIMIT_MESSAGES, useApi, useResource } from '../../lib/api';
 import { buyVideo, videoPrice } from '../../lib/purchases';
 import { isInProgress, STATUS_LABELS, STYLE_LABELS } from '../../lib/styles';
-import { colors as c, radius } from '../../lib/theme';
+import { colors as c, fonts, radius, space, type } from '../../lib/theme';
 
 /** One video from script to share: it shows whatever step the video is at. */
 export default function VideoScreen() {
@@ -46,6 +53,13 @@ export default function VideoScreen() {
     pollMs: 4000,
     poll: (v) => isInProgress(v.status),
   });
+  // A light tick each time production moves on a step while you watch.
+  const status = video.data?.status;
+  const lastStatus = useRef(status);
+  useEffect(() => {
+    if (lastStatus.current && status && status !== lastStatus.current) tick();
+    lastStatus.current = status;
+  }, [status]);
 
   if (video.error) {
     return (
@@ -63,14 +77,18 @@ export default function VideoScreen() {
   const header = <Stack.Screen options={{ title: '' }} />;
   const names = v.cast.map((m) => m.displayName);
   const filming = names.length ? `Filming ${listNames(names)}` : 'Filming the cast';
+  const star = names[0];
 
   switch (v.status) {
     case 'draft':
       return (
         <Waiting
           header={header}
+          eyebrow="In the writers' room"
           text="Writing the script"
           hint="This takes about half a minute."
+          cast={names}
+          captions={WRITING_CAPTIONS}
           steps={[
             ['Reading the chat', 'done'],
             ['Writing the script', 'now'],
@@ -90,8 +108,11 @@ export default function VideoScreen() {
       return (
         <Waiting
           header={header}
-          text={STATUS_LABELS[v.status].replace('…', '')}
+          eyebrow={STATUS_LABELS[v.status].replace('…', '')}
+          text={star ? `Lights. Camera. ${star}.` : 'Lights. Camera. Action.'}
           hint="This takes a few minutes. You can leave the app; we'll send you a notification when it premieres."
+          cast={names}
+          captions={filmingCaptions(names)}
           steps={[
             ['Script approved', 'done'],
             [filming, v.status === 'paid' ? 'now' : 'done'],
@@ -111,20 +132,34 @@ export default function VideoScreen() {
       return (
         <Screen
           footer={
-            <Button
-              title="Back to the group"
-              onPress={() => router.replace(`/groups/${v.groupId}`)}
-            />
+            <>
+              <Button
+                title="Write a new script"
+                onPress={() => router.replace(`/groups/${v.groupId}/new-video`)}
+              />
+              <Button
+                title="Back to the group"
+                kind="quiet"
+                onPress={() => router.replace(`/groups/${v.groupId}`)}
+              />
+            </>
           }
         >
           {header}
-          <View style={{ gap: 10, marginTop: 24 }}>
-            <Eyebrow>Cut</Eyebrow>
-            <Title>We couldn't make this video</Title>
-            <Body muted>
-              Sometimes the AI turns a scene down or a cast member removed their selfie. You weren't
-              charged: if you'd paid, it's back on your account for the next video.
-            </Body>
+          <View style={styles.cut}>
+            <View style={styles.cutPoster}>
+              <GenrePoster genre={v.style} title={v.title ?? undefined} height={260} />
+              <View style={styles.cutShade} />
+              <Text style={styles.cutStamp}>CUT</Text>
+            </View>
+            <View style={{ gap: 10 }}>
+              <Eyebrow>That's a wrap, for now</Eyebrow>
+              <Title>We couldn't make this video</Title>
+              <Body muted>
+                Sometimes the AI turns a scene down, or a cast member removed their selfie. You
+                weren't charged: if you paid, the credit is back on your account for the next video.
+              </Body>
+            </View>
           </View>
         </Screen>
       );
@@ -136,29 +171,70 @@ function listNames(names: string[]) {
   return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
 }
 
+const WRITING_CAPTIONS = [
+  'Reading the chat…',
+  'Finding the punchline…',
+  'Giving everyone their best line…',
+  'Cutting the boring bits…',
+];
+
+const filmingCaptions = (names: string[]) => [
+  'Setting up the lights…',
+  names[0] ? `${names[0]} is in makeup…` : 'The cast is in makeup…',
+  names[1] ? `${names[1]} is running lines…` : 'Running lines…',
+  'Rolling camera…',
+  'Adding the subtitles…',
+];
+
+const CAPTION_MS = 5000;
+
+/** The wait between steps: the countdown leader, the cast on set, and what's happening now. */
 function Waiting({
   header,
+  eyebrow,
   text,
   hint,
+  cast,
+  captions,
   steps,
 }: {
   header: React.ReactNode;
+  eyebrow: string;
   text: string;
   hint: string;
+  cast: string[];
+  captions: string[];
   steps: [string, StepState][];
 }) {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setN((x) => x + 1), CAPTION_MS);
+    return () => clearInterval(t);
+  }, []);
+  const caption = captions[n % captions.length]!;
   return (
     <Screen>
       {header}
       <View style={styles.waiting}>
         <FilmLeader />
-        <View style={{ gap: 8 }}>
+        <View style={{ gap: 10, alignItems: 'center' }}>
+          <Eyebrow>{eyebrow}</Eyebrow>
           <Title style={{ textAlign: 'center' }}>{text}</Title>
-          <Body muted style={{ textAlign: 'center' }}>
-            {hint}
-          </Body>
+          {cast.length > 0 && <FaceStack names={cast} size={34} />}
+          <Animated.Text
+            key={caption}
+            entering={FadeIn.duration(400)}
+            exiting={FadeOut.duration(250)}
+            style={styles.caption}
+            accessibilityLiveRegion="polite"
+          >
+            {caption}
+          </Animated.Text>
         </View>
         <Steps steps={steps.map(([label, state]) => ({ label, state }))} />
+        <Body small muted style={{ textAlign: 'center' }}>
+          {hint}
+        </Body>
       </View>
     </Screen>
   );
@@ -181,6 +257,7 @@ function ScriptReview({
   const [busy, setBusy] = useState<'approve' | 'regenerate' | null>(null);
   const [torn, setTorn] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [storePrice, setStorePrice] = useState<string | null>(null);
   useEffect(() => {
     void videoPrice().then(setStorePrice);
@@ -201,6 +278,7 @@ function ScriptReview({
   async function approve() {
     setBusy('approve');
     setError('');
+    setNotice('');
     try {
       if (dirty) {
         onChange(
@@ -219,9 +297,8 @@ function ScriptReview({
         const bought = await buyVideo(() => call<Me>('/me'));
         if (bought === 'cancelled') return;
         if (bought === 'pending') {
-          Alert.alert(
-            'Payment received',
-            "Your video credit is on its way. Tap Roll camera again in a moment; you won't be charged twice.",
+          setNotice(
+            "Payment received. Your ticket is on its way: tap Roll camera again in a moment, and you won't be charged twice.",
           );
           return;
         }
@@ -235,7 +312,10 @@ function ScriptReview({
       await reload();
     } catch (e) {
       setTorn(false);
-      setError(limitMessage(e) ?? 'Something went wrong. Please try again.');
+      setError(
+        limitMessage(e) ??
+          "We couldn't start filming. If you paid, the ticket is saved on your account, so try again.",
+      );
     } finally {
       setBusy(null);
     }
@@ -255,18 +335,24 @@ function ScriptReview({
   }
 
   const price = !me.data
-    ? { price: '', caption: 'Admit one · 15 sec' }
+    ? { price: '', caption: TICKET_CAPTION }
     : !me.data.freeVideoUsed
-      ? { price: 'Free', caption: 'Your first video' }
+      ? { price: 'Free', caption: 'Your first film is on us' }
       : me.data.videoCredits > 0
-        ? { price: '1 credit', caption: 'Admit one · 15 sec' }
-        : { price: storePrice ?? '$4.99', caption: 'Admit one · 15 sec' };
+        ? { price: '1 ticket', caption: TICKET_CAPTION }
+        : { price: storePrice ?? '$4.99', caption: TICKET_CAPTION };
 
   return (
     <Screen
       footer={
         <>
           <ErrorText>{error}</ErrorText>
+          {notice !== '' && (
+            <Animated.View entering={FadeIn} style={styles.notice}>
+              <Bulbs count={3} />
+              <Text style={styles.noticeText}>{notice}</Text>
+            </Animated.View>
+          )}
           <Ticket
             title="Roll camera"
             price={price.price}
@@ -296,6 +382,9 @@ function ScriptReview({
         </View>
       </Rise>
       <Rise index={1}>
+        <View style={styles.hint}>
+          <Text style={styles.hintText}>✎ Tap any line to rewrite it</Text>
+        </View>
         <ScriptPage>
           {draft.beats.map((b, i) => (
             <View key={`${b.fromSecond}-${b.toSecond}`} style={styles.beat}>
@@ -324,12 +413,13 @@ function ScriptReview({
         </ScriptPage>
       </Rise>
       <Body small muted style={{ textAlign: 'center' }}>
-        Tap a line to change it. The top line is the subtitle; the one in brackets is what the cast
-        says.
+        The top line is the subtitle. The one in brackets is what the cast says.
       </Body>
     </Screen>
   );
 }
+
+const TICKET_CAPTION = 'Admit one · 15-sec film · yours to keep';
 
 /** 4 → "0:04". */
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -385,8 +475,19 @@ function Player({ video }: { video: VideoDetail }) {
     p.loop = true;
     p.play();
   });
+  const [paused, setPaused] = useState(false);
+  const [muted, setMuted] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  useEffect(() => {
+    player.muted = muted;
+  }, [player, muted]);
+  function togglePlay() {
+    if (paused) player.play();
+    else player.pause();
+    setPaused(!paused);
+  }
   useEffect(() => {
     track('video_watched');
   }, []);
@@ -399,6 +500,8 @@ function Player({ video }: { video: VideoDetail }) {
       if (!file.exists) await File.downloadFileAsync(video.playUrl!, file);
       await Sharing.shareAsync(file.uri, { mimeType: 'video/mp4', UTI: 'public.mpeg-4' });
       track('video_shared');
+      success();
+      setSent(true);
     } catch {
       setError("We couldn't share the video. Please try again.");
     } finally {
@@ -422,13 +525,33 @@ function Player({ video }: { video: VideoDetail }) {
   }
 
   function askReport() {
-    Alert.alert('Report this video', 'What is wrong with it?', [
-      ...Object.entries(REPORT_REASONS).map(([reason, text]) => ({
-        text,
-        onPress: () => void report(reason as ReportReason),
-      })),
-      { text: 'Cancel', style: 'cancel' as const },
-    ]);
+    const reasons = Object.entries(REPORT_REASONS) as [ReportReason, string][];
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title: 'Report this video',
+        message: 'What is wrong with it?',
+        options: [...reasons.map(([, text]) => text), 'Cancel'],
+        cancelButtonIndex: reasons.length,
+      },
+      (i) => {
+        const picked = reasons[i];
+        if (picked) void report(picked[0]);
+      },
+    );
+  }
+
+  function more() {
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        options: ['Report a problem', 'Delete video', 'Cancel'],
+        destructiveButtonIndex: 1,
+        cancelButtonIndex: 2,
+      },
+      (i) => {
+        if (i === 0) askReport();
+        if (i === 1) remove();
+      },
+    );
   }
 
   function remove() {
@@ -450,25 +573,140 @@ function Player({ video }: { video: VideoDetail }) {
       footer={
         <>
           <ErrorText>{error}</ErrorText>
-          <Button title="Send to the group" onPress={share} busy={busy} />
-          <Button title="Delete video" kind="danger" onPress={remove} />
-          <Button title="Report a problem" kind="quiet" onPress={askReport} />
+          {sent && (
+            <Animated.Text entering={FadeIn} style={styles.sent}>
+              Sent. Take a bow.
+            </Animated.Text>
+          )}
+          <Button
+            title={sent ? 'Send it again' : 'Send to the group'}
+            onPress={share}
+            busy={busy}
+            busyTitle="Preparing your film…"
+          />
         </>
       }
     >
-      <View style={{ gap: 6 }}>
-        <Eyebrow>Premiere</Eyebrow>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <Pressy
+              accessibilityRole="button"
+              accessibilityLabel="More options"
+              hitSlop={12}
+              onPress={more}
+            >
+              <Text style={styles.more}>•••</Text>
+            </Pressy>
+          ),
+        }}
+      />
+      <View style={{ gap: 8 }}>
+        <Bulbs />
+        <Eyebrow>World premiere · {STYLE_LABELS[video.style].label}</Eyebrow>
         <Title>{video.title ?? STYLE_LABELS[video.style].label}</Title>
       </View>
       <Curtain>
-        <VideoView player={player} style={styles.video} contentFit="contain" nativeControls />
+        <Pressy
+          haptic="tick"
+          onPress={togglePlay}
+          accessibilityRole="button"
+          accessibilityLabel={paused ? 'Play' : 'Pause'}
+        >
+          <VideoView
+            player={player}
+            style={styles.video}
+            contentFit="contain"
+            nativeControls={false}
+          />
+          {paused && (
+            <View style={styles.paused} pointerEvents="none">
+              <View style={styles.playTriangle} />
+            </View>
+          )}
+        </Pressy>
+        <Pressy
+          haptic="tick"
+          hitSlop={10}
+          onPress={() => setMuted((m) => !m)}
+          accessibilityRole="button"
+          accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
+          style={styles.sound}
+        >
+          <Text style={styles.soundText}>{muted ? 'Sound off' : 'Sound on'}</Text>
+        </Pressy>
       </Curtain>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  waiting: { flex: 1, justifyContent: 'center', gap: 32, paddingVertical: 24 },
+  waiting: { flex: 1, justifyContent: 'center', gap: 28, paddingVertical: 24 },
+  caption: { ...type.body, color: c.accent, textAlign: 'center', minHeight: 24 },
+  cut: { gap: space.xl, marginTop: space.lg },
+  cutPoster: { borderRadius: radius.md, overflow: 'hidden' },
+  cutShade: { ...StyleSheet.absoluteFill, backgroundColor: '#1a0e16aa' },
+  cutStamp: {
+    position: 'absolute',
+    alignSelf: 'center',
+    top: '38%',
+    fontFamily: fonts.display,
+    fontSize: 56,
+    letterSpacing: 4,
+    color: c.danger,
+    borderWidth: 4,
+    borderColor: c.danger,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    transform: [{ rotate: '-8deg' }],
+  },
+  notice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: c.card,
+    borderRadius: radius.md,
+    padding: space.md,
+  },
+  noticeText: { ...type.small, color: c.text, flex: 1 },
+  hint: {
+    alignSelf: 'center',
+    backgroundColor: c.highlight,
+    borderRadius: radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginBottom: space.md,
+  },
+  hintText: { fontFamily: fonts.scriptBold, fontSize: 12, color: c.text },
+  sent: { ...type.body, color: c.accent, textAlign: 'center', fontFamily: fonts.displayBold },
+  more: { fontFamily: fonts.displayBold, fontSize: 18, color: c.text, letterSpacing: 1 },
+  paused: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00000055',
+  },
+  playTriangle: {
+    marginLeft: 8,
+    width: 0,
+    height: 0,
+    borderTopWidth: 22,
+    borderBottomWidth: 22,
+    borderLeftWidth: 36,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderLeftColor: '#ffffff',
+  },
+  sound: {
+    position: 'absolute',
+    bottom: 14,
+    right: 14,
+    backgroundColor: '#000000aa',
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  soundText: { fontFamily: fonts.displayBold, fontSize: 13, color: '#ffffff' },
   beat: { gap: 4, paddingBottom: 10 },
   dialogue: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 18 },
   dialogueInput: { flexShrink: 1, padding: 2, borderRadius: 3, minWidth: 40 },

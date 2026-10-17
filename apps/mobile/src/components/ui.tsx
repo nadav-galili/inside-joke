@@ -165,12 +165,15 @@ export function Button({
   kind = 'primary',
   disabled,
   busy,
+  busyTitle,
 }: {
   title: string;
   onPress: () => void;
   kind?: 'primary' | 'secondary' | 'quiet' | 'danger';
   disabled?: boolean;
   busy?: boolean;
+  /** Says what's happening next to the spinner, for waits longer than a moment. */
+  busyTitle?: string;
 }) {
   const primary = kind === 'primary';
   const fg = primary ? c.onAccent : kind === 'danger' ? c.danger : c.text;
@@ -189,7 +192,10 @@ export function Button({
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={fg} />
+        <View style={styles.busyRow}>
+          <ActivityIndicator color={fg} />
+          {busyTitle && <Text style={[type.button, { color: fg }]}>{busyTitle}</Text>}
+        </View>
       ) : (
         <Text
           style={[
@@ -417,6 +423,7 @@ export function ErrorText({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  busyRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   screen: { flex: 1, backgroundColor: c.bg },
   body: { flex: 1, paddingHorizontal: 20, paddingTop: space.sm, paddingBottom: space.xl, gap: 18 },
   footer: { paddingHorizontal: 20, paddingTop: space.sm, paddingBottom: space.sm, gap: space.sm },

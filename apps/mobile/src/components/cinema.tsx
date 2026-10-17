@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Image,
   StyleSheet,
   Text,
   View,
@@ -20,11 +21,25 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import actionStill from '../../assets/genres/action_trailer_80s.jpg';
+import natureStill from '../../assets/genres/nature_documentary.jpg';
+import sportsStill from '../../assets/genres/sports_commentary.jpg';
+import telenovelaStill from '../../assets/genres/telenovela.jpg';
 import { STYLE_LABELS } from '../lib/styles';
 import { colors as c, fonts, GENRE_COLORS, radius, space, type } from '../lib/theme';
 import { Pressy, success } from './ui';
 
-/** A genre's poster: its colour as a lit gradient, with a title set in the poster face. */
+const STILLS: Record<VideoStyle, number> = {
+  action_trailer_80s: actionStill,
+  nature_documentary: natureStill,
+  telenovela: telenovelaStill,
+  sports_commentary: sportsStill,
+};
+
+/**
+ * A genre's poster: a still from a sample film in that genre under the genre's colour, with a
+ * title set in the poster face. `compact` is a small square of colour that shows only the title.
+ */
 export function GenrePoster({
   genre,
   title,
@@ -53,11 +68,14 @@ export function GenrePoster({
         style,
       ]}
     >
-      <PosterBackdrop genre={genre} />
+      {compact ? <PosterBackdrop genre={genre} /> : <PosterStill genre={genre} />}
       {!compact && (
         <Text style={styles.posterTag}>{STYLE_LABELS[genre].tagline.toUpperCase()}</Text>
       )}
-      <Text style={[styles.posterTitle, compact && styles.posterTitleCompact]} numberOfLines={2}>
+      <Text
+        style={[styles.posterTitle, compact ? styles.posterTitleCompact : styles.posterTitleLit]}
+        numberOfLines={2}
+      >
         {title ?? STYLE_LABELS[genre].label}
       </Text>
       {selected && (
@@ -71,6 +89,26 @@ export function GenrePoster({
         </View>
       )}
     </View>
+  );
+}
+
+/** A film still, washed in the genre's colour and darkened at the foot so the title reads. */
+function PosterStill({ genre }: { genre: VideoStyle }) {
+  const g = GENRE_COLORS[genre];
+  return (
+    <>
+      <Image source={STILLS[genre]} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <LinearGradient
+        colors={[`${g.base}33`, `${g.deep}22`, `${g.deep}ee`]}
+        locations={[0, 0.45, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+      <LinearGradient
+        colors={['#00000088', '#00000000']}
+        locations={[0, 0.35]}
+        style={StyleSheet.absoluteFill}
+      />
+    </>
   );
 }
 
@@ -147,7 +185,10 @@ export function Ticket({
       <View style={[styles.ticketMain, styles.ticketGlow]}>
         <Text style={styles.ticketCaption}>{caption.toUpperCase()}</Text>
         {busy ? (
-          <ActivityIndicator color={c.onAccent} style={{ alignSelf: 'flex-start' }} />
+          <View style={styles.ticketBusy}>
+            <ActivityIndicator color={c.onAccent} />
+            <Text style={[styles.ticketTitle, { fontSize: 16 }]}>Printing your ticket…</Text>
+          </View>
         ) : (
           <Text style={styles.ticketTitle}>{title}</Text>
         )}
@@ -316,7 +357,7 @@ const styles = StyleSheet.create({
     borderWidth: 2.5,
     borderColor: 'transparent',
   },
-  posterTag: { fontFamily: fonts.scriptBold, fontSize: 10, letterSpacing: 1.4, color: '#1a0e16aa' },
+  posterTag: { fontFamily: fonts.scriptBold, fontSize: 10, letterSpacing: 1.4, color: '#ffffffcc' },
   posterTitle: {
     fontFamily: fonts.display,
     fontSize: 18,
@@ -325,6 +366,11 @@ const styles = StyleSheet.create({
     color: c.bg,
   },
   posterTitleCompact: { fontSize: 36, lineHeight: 40, textAlign: 'center' },
+  posterTitleLit: {
+    color: '#ffffff',
+    textShadowColor: '#00000099',
+    textShadowRadius: 8,
+  },
   check: {
     position: 'absolute',
     top: 10,
@@ -359,6 +405,7 @@ const styles = StyleSheet.create({
     borderLeftColor: c.text,
   },
   ticketRow: { flexDirection: 'row', minHeight: 68 },
+  ticketBusy: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   ticketGlow: {
     shadowColor: c.accent,
     shadowOpacity: 0.45,

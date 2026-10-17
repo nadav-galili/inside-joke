@@ -94,13 +94,13 @@ export default function Settings() {
         <Card style={styles.wallet}>
           <Eyebrow color={c.muted}>Your tickets</Eyebrow>
           <Heading>
-            {me.data.freeVideoUsed ? 'Free video used' : 'Your first video is free'}
+            {credits > 0
+              ? `${credits} ${credits === 1 ? 'ticket' : 'tickets'} ready to roll`
+              : me.data.freeVideoUsed
+                ? 'Each new film is one ticket'
+                : 'Your first film is on us'}
           </Heading>
-          {credits > 0 && (
-            <Body muted>
-              {credits} video {credits === 1 ? 'credit' : 'credits'} left
-            </Body>
-          )}
+          {credits > 0 && !me.data.freeVideoUsed && <Body muted>Plus your first film, on us.</Body>}
         </Card>
       </Rise>
       <Rise index={2}>
