@@ -42,6 +42,7 @@ function fakeStorage() {
 describe.skipIf(!testDbUrl)('api', () => {
   let db: Db;
   const { storage, objects } = fakeStorage();
+  const deletedAuthUsers: string[] = [];
   let app: ReturnType<typeof createApp>;
 
   beforeAll(async () => {
@@ -60,6 +61,11 @@ describe.skipIf(!testDbUrl)('api', () => {
       storage,
       publicUrl: 'https://api.test',
       revenueCatWebhookAuth: 'Bearer rc-secret',
+      deleteAuthUser: async (id) => {
+        deletedAuthUsers.push(id);
+      },
+      supportEmail: 'help@insidejoke.test',
+      dataController: 'Test Owner, 1 Test St, Testville',
     });
   });
 
@@ -203,6 +209,7 @@ describe.skipIf(!testDbUrl)('api', () => {
     const text = await page.text();
     expect(text).toContain('Poker');
     expect(text).toContain('fal (MiniMax video model)');
+    expect(text).toContain('href="/privacy"');
     expect((await app.request('/join/nope')).status).toBe(404);
   });
 
@@ -425,5 +432,49 @@ describe.skipIf(!testDbUrl)('api', () => {
     expect(objects.has(key)).toBe(false);
     const logged = await db.select().from(reports).where(eq(reports.videoId, video.id));
     expect(logged).toHaveLength(1);
+  });
+
+  it('deletes the account with its groups, selfies and videos', async () => {
+    const { me, group } = await readyGroup();
+    const { body: video } = await me.call('POST', '/videos', {
+      groupId: group.id,
+      inputText: 'hi',
+      style: 'telenovela',
+      castMemberIds: group.members.map((m) => m.id),
+    });
+    const videoKey = `videos/${video.id}.mp4`;
+    objects.add(videoKey);
+    await db
+      .update(videos)
+      .set({ status: 'ready', r2Key: videoKey })
+      .where(eq(videos.id, video.id));
+    const faceKeys = (
+      await db
+        .select({ key: faces.r2Key })
+        .from(faces)
+        .innerJoin(members, eq(members.id, faces.memberId))
+        .where(eq(members.groupId, group.id))
+    ).map((r) => r.key);
+    expect(faceKeys).toHaveLength(3);
+
+    expect((await me.call('DELETE', '/me')).status).toBe(200);
+    expect(deletedAuthUsers).toContain(me.clerkId);
+    for (const key of [...faceKeys, videoKey]) expect(objects.has(key)).toBe(false);
+    expect(await db.select().from(users).where(eq(users.clerkUserId, me.clerkId))).toHaveLength(0);
+    expect(await db.select().from(members).where(eq(members.groupId, group.id))).toHaveLength(0);
+    expect(await db.select().from(videos).where(eq(videos.id, video.id))).toHaveLength(0);
+  });
+
+  it('serves the privacy policy, terms and support pages with the providers and contact', async () => {
+    for (const path of ['/privacy', '/terms', '/support']) {
+      const res = await app.request(path);
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain('help@insidejoke.test');
+    }
+    const privacy = await (await app.request('/privacy')).text();
+    expect(privacy).toContain('Anthropic');
+    expect(privacy).toContain('fal');
+    expect(privacy).toContain('Test Owner, 1 Test St, Testville');
+    expect(privacy).toContain('legal basis');
   });
 });
