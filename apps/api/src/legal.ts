@@ -1,7 +1,7 @@
 import { AI_PROVIDERS } from '@insidejoke/shared';
 import { Hono } from 'hono';
 import { html } from 'hono/html';
-import { page } from './join.ts';
+import { page } from './html.ts';
 
 /** When the privacy policy and terms last changed. Update it with the text. */
 const UPDATED = '17 October 2026';
@@ -75,19 +75,26 @@ export function legalRoutes(supportEmail: string | undefined) {
 
           <h2>How long we keep it</h2>
           <ul>
-            <li>Chat text: until you approve the script, or delete the video.</li>
+            <li>
+              Chat text: until you approve the script, or delete the video. A script you never
+              approve keeps it until you delete your account.
+            </li>
             <li>
               Selfies: until the person removes their face, or the group's creator deletes their
               account.
             </li>
             <li>Videos and scripts: until the video is deleted.</li>
             <li>Everything else: until you delete your account.</li>
+            <li>
+              Apple and RevenueCat keep their own records of purchases, which we can't delete for
+              them.
+            </li>
           </ul>
 
           <h2>Your choices</h2>
           <ul>
             <li>Remove your face at any time in Settings. It can't be used in any new video.</li>
-            <li>Delete any video you made from its screen.</li>
+            <li>Delete any finished video you made from its screen.</li>
             <li>
               Friends who joined from an invite link can remove their face, or take down any video
               they're in, from the private link they got when they joined.

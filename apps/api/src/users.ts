@@ -146,8 +146,11 @@ export function meRoutes(db: Db, storage: Storage, deleteAuthUser: DeleteAuthUse
       await tx.delete(users).where(eq(users.id, user.id));
       return [user.selfieKey, ...faceKeys.map((r) => r.key), ...videoKeys.map((r) => r.key)];
     });
+    // The rows are gone, so a failed removal can't be retried: log it and carry on.
     const unique = [...new Set(keys.filter((k): k is string => k !== null))];
-    await Promise.all(unique.map((key) => storage.remove(key)));
+    const removed = await Promise.allSettled(unique.map((key) => storage.remove(key)));
+    for (const r of removed)
+      if (r.status === 'rejected') console.error('orphaned object', r.reason);
     await deleteAuthUser(clerkUserId);
     return c.json({ ok: true });
   });

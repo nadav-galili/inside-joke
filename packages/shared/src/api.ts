@@ -16,10 +16,10 @@ export const AI_PROVIDERS = [
   {
     name: 'fal (MiniMax video model)',
     credit: 'Films',
-    receives: 'the selfies of the cast, to make the video',
+    receives: 'the selfies of the cast and the written scene, to make the video',
   },
 ] as const;
-export const AI_CONSENT_VERSION = 'ai-v2';
+export const AI_CONSENT_VERSION = 'ai-v3';
 
 /** What someone agrees to when they add their own selfie. Stored with every face. */
 export const FACE_CONSENT_VERSION = 'face-v2';

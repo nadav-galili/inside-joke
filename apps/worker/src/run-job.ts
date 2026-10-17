@@ -33,8 +33,8 @@ export async function runJob(
     .select({ status: videos.status })
     .from(videos)
     .where(eq(videos.id, job.videoId));
-  if (current?.status === 'deleted') {
-    // The user deleted the video while it was queued: spend nothing more on it.
+  if (!current || current.status === 'deleted') {
+    // The video, or the whole account, was deleted while queued: spend nothing more on it.
     await db
       .update(generationJobs)
       .set({ status: 'failed', error: 'video deleted', updatedAt: new Date() })

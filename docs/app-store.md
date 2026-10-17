@@ -18,12 +18,12 @@ are served by the API, so the URLs below use the API's public address (`PUBLIC_U
 **Promotional text (170)**
 
 > Paste a moment from your group chat, pick a genre, and get a 15-second comedy starring your
-> friends. Everyone adds their own selfie. Your first video is free.
+> friends. Everyone adds their own selfie. Your first video is on us.
 
 **Keywords (100)**
 
 ```
-comedy,meme,skit,roast,birthday,parody,sketch,movie,trailer,selfie,cast,starring,group chat,laugh
+comedy,meme,skit,roast,birthday,prank,sketch,movie,trailer,selfie,cast,starring,group chat,laugh
 ```
 
 **Description**
@@ -48,7 +48,8 @@ comedy,meme,skit,roast,birthday,parody,sketch,movie,trailer,selfie,cast,starring
 > • Every video is labelled as AI-generated.
 >
 > PRICING
-> Your first video is free. After that, each video is a single $4.99 purchase. No subscription.
+> Your first video is free, with a small Inside Joke watermark. After that, each video is a single
+> $4.99 purchase with no watermark. No subscription.
 >
 > Inside Joke is for adults 18 and over.
 
@@ -104,9 +105,9 @@ Paste into App Review Information → Notes:
 >
 > Sign in: use the demo account below (email sign-in; the code is 424242), or Sign in with Apple.
 >
-> The demo account already has a group, "Review Crew", with two members who added their own
-> selfies, so you can make a video right away: open the group, tap New video, paste any short
-> chat, pick a genre, approve the script. The first video is free and arrives in a few minutes
+> The demo account already has a group, "Review Crew": the account's owner and one friend, each
+> with their own selfie. A video needs at least two people, so cast both: open the group, tap New
+> video, paste any short chat, pick a genre, approve the script. The first video is free and arrives in a few minutes
 > with a notification. To test the $4.99 purchase, make a second video and buy it on the script
 > screen (sandbox).
 >
@@ -118,8 +119,12 @@ Paste into App Review Information → Notes:
 >   camera, and friends add theirs on the group's invite page, with their own consent.
 > • Every finished video is checked for safety before it's delivered and carries an
 >   "AI-generated" label.
-> • Anyone in a video can take it down at once from their private link; the creator can delete it
->   from the video screen. Takedowns are logged and reviewed.
+> • Anyone in a video can take it down at once from their private link, and can remove their
+>   face so nobody can cast them again; the creator can delete it from the video screen. Every
+>   takedown is logged, and Support (Settings → Support) reaches us.
+> • There is no public feed: videos are only seen by the person who made them and whoever they
+>   send them to. Scripts are written to tease, never humiliate, and the user can edit them
+>   before anything is filmed.
 > • Account deletion: Settings → Delete account.
 
 **Demo account (sign-in)**: App Review can't receive an email code, so the demo account uses
