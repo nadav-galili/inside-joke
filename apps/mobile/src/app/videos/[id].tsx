@@ -57,7 +57,10 @@ export default function VideoScreen() {
   const status = video.data?.status;
   const lastStatus = useRef(status);
   useEffect(() => {
-    if (lastStatus.current && status && status !== lastStatus.current) tick();
+    // Paying and the premiere have their own celebration, so only the quiet steps tick.
+    if (status === 'script_ready' || status === 'generating') {
+      if (lastStatus.current && status !== lastStatus.current) tick();
+    }
     lastStatus.current = status;
   }, [status]);
 
@@ -157,7 +160,7 @@ export default function VideoScreen() {
               <Title>We couldn't make this video</Title>
               <Body muted>
                 Sometimes the AI turns a scene down, or a cast member removed their selfie. You
-                weren't charged: if you paid, the credit is back on your account for the next video.
+                weren't charged: if you paid, the ticket is back on your account for the next video.
               </Body>
             </View>
           </View>
@@ -294,7 +297,13 @@ function ScriptReview({
       let result = await approveOnce();
       if ('error' in result) {
         // No free video or credit left: buy one through Apple, then approve with it.
-        const bought = await buyVideo(() => call<Me>('/me'));
+        let bought;
+        try {
+          bought = await buyVideo(() => call<Me>('/me'));
+        } catch {
+          setError("Apple didn't finish the payment, so you weren't charged. Please try again.");
+          return;
+        }
         if (bought === 'cancelled') return;
         if (bought === 'pending') {
           setNotice(
@@ -475,19 +484,10 @@ function Player({ video }: { video: VideoDetail }) {
     p.loop = true;
     p.play();
   });
-  const [paused, setPaused] = useState(false);
-  const [muted, setMuted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => {
-    player.muted = muted;
-  }, [player, muted]);
-  function togglePlay() {
-    if (paused) player.play();
-    else player.pause();
-    setPaused(!paused);
-  }
+
   useEffect(() => {
     track('video_watched');
   }, []);
@@ -607,34 +607,7 @@ function Player({ video }: { video: VideoDetail }) {
         <Title>{video.title ?? STYLE_LABELS[video.style].label}</Title>
       </View>
       <Curtain>
-        <Pressy
-          haptic="tick"
-          onPress={togglePlay}
-          accessibilityRole="button"
-          accessibilityLabel={paused ? 'Play' : 'Pause'}
-        >
-          <VideoView
-            player={player}
-            style={styles.video}
-            contentFit="contain"
-            nativeControls={false}
-          />
-          {paused && (
-            <View style={styles.paused} pointerEvents="none">
-              <View style={styles.playTriangle} />
-            </View>
-          )}
-        </Pressy>
-        <Pressy
-          haptic="tick"
-          hitSlop={10}
-          onPress={() => setMuted((m) => !m)}
-          accessibilityRole="button"
-          accessibilityLabel={muted ? 'Turn sound on' : 'Turn sound off'}
-          style={styles.sound}
-        >
-          <Text style={styles.soundText}>{muted ? 'Sound off' : 'Sound on'}</Text>
-        </Pressy>
+        <VideoView player={player} style={styles.video} contentFit="contain" nativeControls />
       </Curtain>
     </Screen>
   );
@@ -680,33 +653,6 @@ const styles = StyleSheet.create({
   hintText: { fontFamily: fonts.scriptBold, fontSize: 12, color: c.text },
   sent: { ...type.body, color: c.accent, textAlign: 'center', fontFamily: fonts.displayBold },
   more: { fontFamily: fonts.displayBold, fontSize: 18, color: c.text, letterSpacing: 1 },
-  paused: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#00000055',
-  },
-  playTriangle: {
-    marginLeft: 8,
-    width: 0,
-    height: 0,
-    borderTopWidth: 22,
-    borderBottomWidth: 22,
-    borderLeftWidth: 36,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#ffffff',
-  },
-  sound: {
-    position: 'absolute',
-    bottom: 14,
-    right: 14,
-    backgroundColor: '#000000aa',
-    borderRadius: radius.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-  },
-  soundText: { fontFamily: fonts.displayBold, fontSize: 13, color: '#ffffff' },
   beat: { gap: 4, paddingBottom: 10 },
   dialogue: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 18 },
   dialogueInput: { flexShrink: 1, padding: 2, borderRadius: 3, minWidth: 40 },

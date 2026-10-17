@@ -78,9 +78,11 @@ export default function NewVideo() {
       ? 'Paste the moment first'
       : style === null
         ? 'Pick a genre'
-        : cast.length < MIN_CAST
-          ? `Pick ${MIN_CAST - cast.length} more for the cast`
-          : null;
+        : castable.length < MIN_CAST
+          ? 'Invite more friends to cast'
+          : cast.length < MIN_CAST
+            ? `Pick ${MIN_CAST - cast.length} more for the cast`
+            : null;
   const nearLimit = text.length > MAX_INPUT_CHARS * 0.8;
   return (
     <Screen

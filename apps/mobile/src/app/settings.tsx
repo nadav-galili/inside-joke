@@ -55,7 +55,7 @@ export default function Settings() {
   function deleteAccount() {
     Alert.alert(
       'Delete your account?',
-      "Your selfie, your groups with your friends' selfies, and every video you made are deleted for good. Unused video credits are lost.",
+      "Your selfie, your groups with your friends' selfies, and every video you made are deleted for good. Unused tickets are lost.",
       [
         { text: 'Cancel', style: 'cancel' },
         {
