@@ -1,7 +1,11 @@
 import { useAuth } from '@clerk/expo';
+import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+
+/** Opens one of the API's own web pages (privacy, terms, support) in the in-app browser. */
+export const openPage = (path: string) => void WebBrowser.openBrowserAsync(`${API_URL}${path}`);
 
 /** What the app says when the API turns a request down for one of its daily caps, by error code. */
 export const LIMIT_MESSAGES: Record<string, string> = {

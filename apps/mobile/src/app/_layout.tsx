@@ -63,6 +63,11 @@ function Routes() {
         <Stack.Screen name="groups/[id]/new-video" options={{ title: '' }} />
         <Stack.Screen name="videos/[id]" options={{ title: '' }} />
       </Stack.Protected>
+      {/* After the guards, so it's never the first screen a launch lands on. */}
+      <Stack.Screen
+        name="trailer"
+        options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }}
+      />
     </Stack>
   );
 }

@@ -5,9 +5,11 @@ import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import logo from '../../assets/logo.png';
-import { GenrePoster } from '../components/cinema';
-import { Body, Button, ErrorText, Eyebrow, Field, Rise, Screen } from '../components/ui';
-import { colors as c, fonts, type } from '../lib/theme';
+import { Body, Button, ErrorText, Eyebrow, Field, Pressy, Rise, Screen } from '../components/ui';
+import { openPage } from '../lib/api';
+import { SAMPLES } from '../lib/samples';
+import { STYLE_LABELS } from '../lib/styles';
+import { colors as c, fonts, radius, type } from '../lib/theme';
 
 /** Sign in with Apple, or with a code sent by email. New emails are signed up on the way. */
 export default function SignIn() {
@@ -80,21 +82,39 @@ export default function SignIn() {
   return (
     <Screen
       footer={
-        <Body small muted style={{ textAlign: 'center' }}>
-          Your first video is free.
-        </Body>
+        <View style={{ gap: 6 }}>
+          <Body small muted style={{ textAlign: 'center' }}>
+            Your first video is free.
+          </Body>
+          <View style={styles.legalRow}>
+            <Text style={styles.legal}>By continuing, you agree to the</Text>
+            <Pressy haptic="none" accessibilityRole="link" onPress={() => openPage('/terms')}>
+              <Text style={[styles.legal, styles.link]}>Terms</Text>
+            </Pressy>
+            <Text style={styles.legal}>and</Text>
+            <Pressy haptic="none" accessibilityRole="link" onPress={() => openPage('/privacy')}>
+              <Text style={[styles.legal, styles.link]}>Privacy Policy</Text>
+            </Pressy>
+          </View>
+        </View>
       }
     >
       <View style={styles.posters} accessibilityElementsHidden>
-        {POSTERS.map((p, i) => (
+        {SAMPLES.slice(0, 3).map((p, i) => (
           <Animated.View
             key={p.title}
             entering={FadeInUp.delay(120 + i * 110)
               .springify()
               .damping(14)}
-            style={[styles.poster, { transform: [{ rotate: p.tilt }, { translateY: p.drop }] }]}
+            style={[
+              styles.poster,
+              {
+                transform: [{ rotate: `${(i - 1) * 9}deg` }, { translateY: Math.abs(i - 1) * 18 }],
+              },
+            ]}
           >
-            <GenrePoster genre={p.genre} title={p.title} height={176} playable={i === 1} />
+            <Image source={p.poster} style={styles.still} />
+            <Text style={styles.stillTag}>{STYLE_LABELS[p.genre].label.toUpperCase()}</Text>
           </Animated.View>
         ))}
       </View>
@@ -105,7 +125,10 @@ export default function SignIn() {
             Take your seat.{'\n'}
             <Text style={{ color: c.accent }}>The show's about to start.</Text>
           </Text>
-          <Body muted>Sign in to start a group and make its first film.</Body>
+          <Body muted>
+            Sign in to cast your friends and make your first film. Your account keeps your groups,
+            scripts and films together.
+          </Body>
         </View>
       </Rise>
       <Rise index={4}>
@@ -168,16 +191,33 @@ export default function SignIn() {
   );
 }
 
-/** Sample posters for the welcome screen. Made-up titles in each genre, never real films. */
-const POSTERS = [
-  { genre: 'telenovela', title: 'Who Finished the Hummus', tilt: '-9deg', drop: 18 },
-  { genre: 'action_trailer_80s', title: 'The Bluff of the Century', tilt: '0deg', drop: 0 },
-  { genre: 'nature_documentary', title: 'Late Again, Theo', tilt: '9deg', drop: 18 },
-] as const;
-
 const styles = StyleSheet.create({
   posters: { flexDirection: 'row', justifyContent: 'center', marginTop: 24, marginBottom: 8 },
-  poster: { width: 124, marginHorizontal: -10 },
+  poster: {
+    width: 116,
+    marginHorizontal: -8,
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: c.border,
+    backgroundColor: c.card,
+  },
+  still: { width: '100%', aspectRatio: 9 / 16 },
+  stillTag: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    bottom: 8,
+    fontFamily: fonts.scriptBold,
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: '#ffffff',
+    textShadowColor: '#000000cc',
+    textShadowRadius: 4,
+  },
+  legalRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 4 },
+  legal: { ...type.small, color: c.faint },
+  link: { color: c.muted, textDecorationLine: 'underline' },
   hero: { gap: 14 },
   logo: { width: 76, height: 76, borderRadius: 18, marginBottom: 4 },
   or: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 2 },
