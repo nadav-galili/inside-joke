@@ -38,27 +38,33 @@ export function claudeModerator(client = new Anthropic()): Moderator {
         },
       })),
     );
-    const response = await client.messages.parse({
-      model: MODERATION_MODEL,
-      max_tokens: 1000,
-      output_config: { format: zodOutputFormat(verdictSchema) },
-      system: SYSTEM,
-      messages: [
-        {
-          role: 'user',
-          content: [...images, { type: 'text', text: 'Is this video safe to deliver?' }],
-        },
-      ],
-    });
-    const costUsd =
-      response.usage.input_tokens * INPUT_USD_PER_TOKEN +
-      response.usage.output_tokens * OUTPUT_USD_PER_TOKEN;
-    // A refusal to review is treated as a block: nothing unreviewed is delivered.
-    if (response.stop_reason === 'refusal' || !response.parsed_output) {
-      return { safe: false, reason: 'the review was refused', costUsd, model: MODERATION_MODEL };
-    }
-    return { ...response.parsed_output, costUsd, model: MODERATION_MODEL };
+    return review(client, SYSTEM, [
+      ...images,
+      { type: 'text', text: 'Is this video safe to deliver?' },
+    ]);
   };
+}
+
+/** Asks Claude for a verdict. A refusal to review is a block: nothing unreviewed goes out. */
+async function review(
+  client: Anthropic,
+  system: string,
+  content: Anthropic.ContentBlockParam[],
+): Promise<ModerationResult> {
+  const response = await client.messages.parse({
+    model: MODERATION_MODEL,
+    max_tokens: 1000,
+    output_config: { format: zodOutputFormat(verdictSchema) },
+    system,
+    messages: [{ role: 'user', content }],
+  });
+  const costUsd =
+    response.usage.input_tokens * INPUT_USD_PER_TOKEN +
+    response.usage.output_tokens * OUTPUT_USD_PER_TOKEN;
+  if (response.stop_reason === 'refusal' || !response.parsed_output) {
+    return { safe: false, reason: 'the review was refused', costUsd, model: MODERATION_MODEL };
+  }
+  return { ...response.parsed_output, costUsd, model: MODERATION_MODEL };
 }
 
 const SCRIPT_SYSTEM = `You review the script of a short AI-generated comedy video before it is filmed. The cast are adult friends who each added their own selfie and agreed to appear; the person ordering it may have rewritten any line.
@@ -77,25 +83,11 @@ function scriptText(script: Script): string {
 }
 
 export function claudeScriptModerator(client = new Anthropic()): ScriptModerator {
-  return async (script) => {
-    const response = await client.messages.parse({
-      model: MODERATION_MODEL,
-      max_tokens: 1000,
-      output_config: { format: zodOutputFormat(verdictSchema) },
-      system: SCRIPT_SYSTEM,
-      messages: [
-        {
-          role: 'user',
-          content: `<script>\n${scriptText(script)}\n</script>\n\nIs this script safe to film?`,
-        },
-      ],
-    });
-    const costUsd =
-      response.usage.input_tokens * INPUT_USD_PER_TOKEN +
-      response.usage.output_tokens * OUTPUT_USD_PER_TOKEN;
-    if (response.stop_reason === 'refusal' || !response.parsed_output) {
-      return { safe: false, reason: 'the review was refused', costUsd, model: MODERATION_MODEL };
-    }
-    return { ...response.parsed_output, costUsd, model: MODERATION_MODEL };
-  };
+  return (script) =>
+    review(client, SCRIPT_SYSTEM, [
+      {
+        type: 'text',
+        text: `<script>\n${scriptText(script)}\n</script>\n\nIs this script safe to film?`,
+      },
+    ]);
 }

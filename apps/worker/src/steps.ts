@@ -116,7 +116,7 @@ export function createSteps(db: Db, deps: StepDeps): Record<GenerationStep, Step
         referenceImageUrls,
       });
       return {
-        output: { videoUrl: generated.videoUrl, scriptCheck: check.reason },
+        output: { videoUrl: generated.videoUrl },
         costUsd: generated.costUsd + check.costUsd,
         provider: 'fal',
         model: generated.model,

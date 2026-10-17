@@ -12,7 +12,7 @@ export const ORPHAN_GRACE_HOURS = 24;
 /** The R2 prefixes that hold people's faces and videos. */
 const SWEPT_PREFIXES = ['faces/', 'videos/'];
 /** Up to this many orphans are always removed; more than that only while they're a minority. */
-const MAX_ORPHANS_WITHOUT_CHECK = 50;
+const MAX_ORPHANS_WITHOUT_CHECK = 5;
 
 const hoursAgo = (now: Date, hours: number) => new Date(now.getTime() - hours * 3600_000);
 
@@ -71,7 +71,9 @@ export async function sweepExpiredData(
   }
   // A worker pointed at the wrong or an empty database would see every file as unused. Orphans
   // are a trickle, so a sweep that would empty most of the bucket stops instead.
-  if (orphans.length > MAX_ORPHANS_WITHOUT_CHECK && orphans.length > listed / 2) {
+  const suspicious =
+    inUse.size === 0 || (orphans.length > MAX_ORPHANS_WITHOUT_CHECK && orphans.length > listed / 2);
+  if (orphans.length > 0 && suspicious) {
     throw new SweepTooLargeError(orphans.length, listed);
   }
   for (const key of orphans) await storage.remove(key);

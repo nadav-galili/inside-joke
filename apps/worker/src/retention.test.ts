@@ -82,7 +82,7 @@ describe.skipIf(!testDbUrl)('sweepExpiredData', () => {
 
   it('refuses to empty a bucket the database knows nothing about', async () => {
     const objects = Object.fromEntries(
-      Array.from({ length: 60 }, () => [`videos/${crypto.randomUUID()}.mp4`, daysAgo(2)]),
+      Array.from({ length: 8 }, () => [`videos/${crypto.randomUUID()}.mp4`, daysAgo(2)]),
     );
     const { storage, removed } = fakeBucket(objects);
     await expect(sweepExpiredData(db, storage)).rejects.toBeInstanceOf(SweepTooLargeError);

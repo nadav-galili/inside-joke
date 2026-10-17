@@ -10,6 +10,10 @@ const posthog = key
   ? new PostHog(key, {
       host: process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',
       defaultOptIn: false,
+      // Opting out only stops events. Flags would still send the user's ids on launch, sign-in and
+      // sign-out, and the app uses none.
+      disableRemoteFeatureFlags: true,
+      preloadFeatureFlags: false,
     })
   : null;
 

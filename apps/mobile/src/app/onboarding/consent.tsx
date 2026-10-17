@@ -51,12 +51,12 @@ export default function AiConsent() {
       footer={
         <>
           <ErrorText>{error}</ErrorText>
-          <Checkbox checked={stats} onToggle={() => setStats(!stats)} style={styles.adult}>
+          <Checkbox checked={stats} onToggle={() => setStats(!stats)} style={styles.check}>
             <Body>
               Optional: share usage stats (which screens you use) to help us improve the app.
             </Body>
           </Checkbox>
-          <Checkbox checked={adult} onToggle={() => setAdult(!adult)} style={styles.adult}>
+          <Checkbox checked={adult} onToggle={() => setAdult(!adult)} style={styles.check}>
             <Body>I'm 18 or older.</Body>
           </Checkbox>
           <Button title="I agree, let's go" onPress={agree} busy={busy} disabled={!adult} />
@@ -118,5 +118,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tickMark: { color: c.accent, fontSize: 12, fontWeight: '900' },
-  adult: { alignItems: 'center', paddingVertical: 6 },
+  check: { alignItems: 'center', paddingVertical: 6 },
 });

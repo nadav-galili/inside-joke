@@ -3,6 +3,7 @@ import {
   type ApproveResult,
   type Beat,
   type Me,
+  type ReportReason,
   type Script,
   type VideoDetail,
 } from '@insidejoke/shared';
@@ -397,7 +398,7 @@ function Player({ video }: { video: VideoDetail }) {
     }
   }
 
-  async function report(reason: keyof typeof REPORT_REASONS) {
+  async function report(reason: ReportReason) {
     try {
       await call(`/videos/${video.id}/report`, {
         method: 'POST',
@@ -416,7 +417,7 @@ function Player({ video }: { video: VideoDetail }) {
     Alert.alert('Report this video', 'What is wrong with it?', [
       ...Object.entries(REPORT_REASONS).map(([reason, text]) => ({
         text,
-        onPress: () => void report(reason as keyof typeof REPORT_REASONS),
+        onPress: () => void report(reason as ReportReason),
       })),
       { text: 'Cancel', style: 'cancel' as const },
     ]);
