@@ -1,4 +1,11 @@
-import type { ApproveResult, Beat, Me, Script, VideoDetail } from '@insidejoke/shared';
+import {
+  MAX_SCRIPT_LINE,
+  type ApproveResult,
+  type Beat,
+  type Me,
+  type Script,
+  type VideoDetail,
+} from '@insidejoke/shared';
 import { File, Paths } from 'expo-file-system';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -25,7 +32,7 @@ import {
   Title,
 } from '../../components/ui';
 import { track } from '../../lib/analytics';
-import { useApi, useResource } from '../../lib/api';
+import { ApiError, LIMIT_MESSAGES, useApi, useResource } from '../../lib/api';
 import { buyVideo, videoPrice } from '../../lib/purchases';
 import { isInProgress, STATUS_LABELS, STYLE_LABELS } from '../../lib/styles';
 import { colors as c, radius } from '../../lib/theme';
@@ -224,9 +231,9 @@ function ScriptReview({
       setTorn(true);
       await new Promise((r) => setTimeout(r, 700));
       await reload();
-    } catch {
+    } catch (e) {
       setTorn(false);
-      setError('Something went wrong. Please try again.');
+      setError(limitMessage(e) ?? 'Something went wrong. Please try again.');
     } finally {
       setBusy(null);
     }
@@ -238,8 +245,8 @@ function ScriptReview({
       await call(`/videos/${video.id}/regenerate`, { method: 'POST' });
       track('script_regenerated');
       await reload();
-    } catch {
-      setError("We couldn't write a new script.");
+    } catch (e) {
+      setError(limitMessage(e) ?? "We couldn't write a new script.");
     } finally {
       setBusy(null);
     }
@@ -326,6 +333,10 @@ function ScriptReview({
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
 /** A line of dialogue you can edit in place, highlighted like a marker while you type. */
+/** The app's words for a daily cap the API hit, or undefined for any other failure. */
+const limitMessage = (e: unknown) =>
+  e instanceof ApiError && e.code ? LIMIT_MESSAGES[e.code] : undefined;
+
 function ScriptInput({
   value,
   onChangeText,
@@ -344,6 +355,7 @@ function ScriptInput({
       <TextInput
         value={value}
         onChangeText={onChangeText}
+        maxLength={MAX_SCRIPT_LINE}
         multiline
         scrollEnabled={false}
         accessibilityLabel={label}
