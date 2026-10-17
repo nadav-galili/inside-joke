@@ -35,12 +35,16 @@ export async function api<T>(
   return body as T;
 }
 
-/** `api` bound to the current session. */
+/** `api` bound to the current session. The function stays the same across renders. */
 export function useApi() {
   const { getToken } = useAuth();
+  // @clerk/expo hands back a new getToken on every render. Depending on it directly made every
+  // useResource refetch on every render, in a loop.
+  const tokenRef = useRef(getToken);
+  tokenRef.current = getToken;
   return useCallback(
-    <T>(path: string, init?: RequestInit) => api<T>(path, getToken, init),
-    [getToken],
+    <T>(path: string, init?: RequestInit) => api<T>(path, () => tokenRef.current(), init),
+    [],
   );
 }
 

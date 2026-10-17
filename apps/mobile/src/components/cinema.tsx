@@ -43,7 +43,6 @@ export function GenrePoster({
   compact?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const g = GENRE_COLORS[genre];
   return (
     <View
       style={[
@@ -54,20 +53,7 @@ export function GenrePoster({
         style,
       ]}
     >
-      <LinearGradient
-        colors={[g.light, g.base, g.deep]}
-        locations={[0, 0.45, 1]}
-        start={{ x: 0.1, y: 0 }}
-        end={{ x: 0.9, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      {/* A soft light leak across the top corner, like a projector flare. */}
-      <LinearGradient
-        colors={['#ffffff55', '#ffffff00']}
-        start={{ x: 1, y: 0 }}
-        end={{ x: 0.4, y: 0.6 }}
-        style={StyleSheet.absoluteFill}
-      />
+      <PosterBackdrop genre={genre} />
       {!compact && (
         <Text style={styles.posterTag}>{STYLE_LABELS[genre].tagline.toUpperCase()}</Text>
       )}
@@ -85,6 +71,29 @@ export function GenrePoster({
         </View>
       )}
     </View>
+  );
+}
+
+/** A genre's colour as a lit gradient, filling its parent. */
+export function PosterBackdrop({ genre }: { genre: VideoStyle }) {
+  const g = GENRE_COLORS[genre];
+  return (
+    <>
+      <LinearGradient
+        colors={[g.light, g.base, g.deep]}
+        locations={[0, 0.45, 1]}
+        start={{ x: 0.1, y: 0 }}
+        end={{ x: 0.9, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      {/* A soft light leak across the top corner, like a projector flare. */}
+      <LinearGradient
+        colors={['#ffffff55', '#ffffff00']}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0.4, y: 0.6 }}
+        style={StyleSheet.absoluteFill}
+      />
+    </>
   );
 }
 

@@ -4,7 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
-import wordmark from '../../assets/wordmark.png';
+import logo from '../../assets/logo.png';
 import { GenrePoster } from '../components/cinema';
 import { Body, Button, ErrorText, Eyebrow, Field, Rise, Screen } from '../components/ui';
 import { colors as c, fonts, type } from '../lib/theme';
@@ -100,14 +100,12 @@ export default function SignIn() {
       </View>
       <Rise index={3}>
         <View style={styles.hero}>
-          <Image source={wordmark} accessibilityLabel="Inside Joke" style={styles.wordmark} />
+          <Image source={logo} accessibilityLabel="Inside Joke" style={styles.logo} />
           <Text style={[type.hero, { color: c.text }]}>
-            Your group chat,{'\n'}
-            <Text style={{ color: c.accent }}>now showing.</Text>
+            Take your seat.{'\n'}
+            <Text style={{ color: c.accent }}>The show's about to start.</Text>
           </Text>
-          <Body muted>
-            Turn the chat's best moment into a 15-second film starring your friends.
-          </Body>
+          <Body muted>Sign in to start a group and make its first film.</Body>
         </View>
       </Rise>
       <Rise index={4}>
@@ -174,14 +172,14 @@ export default function SignIn() {
 const POSTERS = [
   { genre: 'telenovela', title: 'Who Finished the Hummus', tilt: '-9deg', drop: 18 },
   { genre: 'action_trailer_80s', title: 'The Bluff of the Century', tilt: '0deg', drop: 0 },
-  { genre: 'nature_documentary', title: 'Late Again, Dani', tilt: '9deg', drop: 18 },
+  { genre: 'nature_documentary', title: 'Late Again, Theo', tilt: '9deg', drop: 18 },
 ] as const;
 
 const styles = StyleSheet.create({
   posters: { flexDirection: 'row', justifyContent: 'center', marginTop: 24, marginBottom: 8 },
   poster: { width: 124, marginHorizontal: -10 },
   hero: { gap: 14 },
-  wordmark: { width: 168, height: 168 * (172 / 524), marginBottom: 4 },
+  logo: { width: 76, height: 76, borderRadius: 18, marginBottom: 4 },
   or: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 2 },
   rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: c.border },
   code: { fontFamily: fonts.display, fontSize: 28, letterSpacing: 8, textAlign: 'center' },
