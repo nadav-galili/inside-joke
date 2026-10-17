@@ -4,13 +4,31 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, View } from 'react-native';
-import { Body, Button, Card, ErrorText, Loading, Screen, Title } from '../../components/ui';
+import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+  Curtain,
+  FilmLeader,
+  ScriptPage,
+  scriptText,
+  Steps,
+  Ticket,
+  type StepState,
+} from '../../components/cinema';
+import {
+  Body,
+  Button,
+  ErrorText,
+  Eyebrow,
+  Loading,
+  Rise,
+  Screen,
+  Title,
+} from '../../components/ui';
 import { track } from '../../lib/analytics';
 import { useApi, useResource } from '../../lib/api';
 import { buyVideo, videoPrice } from '../../lib/purchases';
-import { isInProgress, STATUS_LABELS } from '../../lib/styles';
-import { useColors } from '../../lib/theme';
+import { isInProgress, STATUS_LABELS, STYLE_LABELS } from '../../lib/styles';
+import { colors as c, radius } from '../../lib/theme';
 
 /** One video from script to share: it shows whatever step the video is at. */
 export default function VideoScreen() {
@@ -22,25 +40,39 @@ export default function VideoScreen() {
 
   if (video.error) {
     return (
-      <Screen>
-        <ErrorText>We couldn't load this video.</ErrorText>
-        <Button title="Try again" onPress={() => void video.reload()} />
+      <Screen footer={<Button title="Try again" onPress={() => void video.reload()} />}>
+        <View style={{ gap: 10, marginTop: 40 }}>
+          <Eyebrow>Lost the signal</Eyebrow>
+          <Title>We couldn't load this video</Title>
+          <Body muted>Check your connection and try again.</Body>
+        </View>
       </Screen>
     );
   }
   if (!video.data) return <Loading />;
   const v = video.data;
-  const title = <Stack.Screen options={{ title: v.title ?? '' }} />;
+  const header = <Stack.Screen options={{ title: '' }} />;
+  const names = v.cast.map((m) => m.displayName);
+  const filming = names.length ? `Filming ${listNames(names)}` : 'Filming the cast';
 
   switch (v.status) {
     case 'draft':
       return (
-        <Waiting title={title} text="Writing the script…" hint="This takes about half a minute." />
+        <Waiting
+          header={header}
+          text="Writing the script"
+          hint="This takes about half a minute."
+          steps={[
+            ['Reading the chat', 'done'],
+            ['Writing the script', 'now'],
+            ['Your approval', 'later'],
+          ]}
+        />
       );
     case 'script_ready':
       return (
         <>
-          {title}
+          {header}
           <ScriptReview video={v} onChange={(next) => video.setData(next)} reload={video.reload} />
         </>
       );
@@ -48,54 +80,82 @@ export default function VideoScreen() {
     case 'generating':
       return (
         <Waiting
-          title={title}
-          text={STATUS_LABELS[v.status]}
-          hint="This takes a few minutes. You can leave the app; we'll send you a notification when it's ready."
+          header={header}
+          text={STATUS_LABELS[v.status].replace('…', '')}
+          hint="This takes a few minutes. You can leave the app; we'll send you a notification when it premieres."
+          steps={[
+            ['Script approved', 'done'],
+            [filming, v.status === 'paid' ? 'now' : 'done'],
+            ['Subtitles and final cut', v.status === 'paid' ? 'later' : 'now'],
+          ]}
         />
       );
     case 'ready':
       return (
         <>
-          {title}
+          {header}
           <Player video={v} />
         </>
       );
     case 'failed':
     case 'deleted':
       return (
-        <Screen>
-          {title}
-          <Title>We couldn't make this video</Title>
-          <Body>
-            Sometimes the AI turns a scene down or a cast member removed their selfie. You weren't
-            charged: if you'd paid, it's back on your account for the next video.
-          </Body>
-          <Button
-            title="Back to the group"
-            onPress={() => router.replace(`/groups/${v.groupId}`)}
-          />
+        <Screen
+          footer={
+            <Button
+              title="Back to the group"
+              onPress={() => router.replace(`/groups/${v.groupId}`)}
+            />
+          }
+        >
+          {header}
+          <View style={{ gap: 10, marginTop: 24 }}>
+            <Eyebrow>Cut</Eyebrow>
+            <Title>We couldn't make this video</Title>
+            <Body muted>
+              Sometimes the AI turns a scene down or a cast member removed their selfie. You weren't
+              charged: if you'd paid, it's back on your account for the next video.
+            </Body>
+          </View>
         </Screen>
       );
   }
 }
 
-function Waiting({ title, text, hint }: { title: React.ReactNode; text: string; hint: string }) {
-  const c = useColors();
+/** "Dani", "Dani and Ziv", "Dani, Ziv and Maya". */
+function listNames(names: string[]) {
+  return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+}
+
+function Waiting({
+  header,
+  text,
+  hint,
+  steps,
+}: {
+  header: React.ReactNode;
+  text: string;
+  hint: string;
+  steps: [string, StepState][];
+}) {
   return (
     <Screen>
-      {title}
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={c.accent} />
-        <Title>{text}</Title>
-        <Body muted style={{ textAlign: 'center' }}>
-          {hint}
-        </Body>
+      {header}
+      <View style={styles.waiting}>
+        <FilmLeader />
+        <View style={{ gap: 8 }}>
+          <Title style={{ textAlign: 'center' }}>{text}</Title>
+          <Body muted style={{ textAlign: 'center' }}>
+            {hint}
+          </Body>
+        </View>
+        <Steps steps={steps.map(([label, state]) => ({ label, state }))} />
       </View>
     </Screen>
   );
 }
 
-/** Shows the script for approval. Lines can be tweaked, or the whole script rewritten. */
+/** Shows the script for approval as a screenplay page. Lines can be tweaked, or the whole script rewritten. */
 function ScriptReview({
   video,
   onChange,
@@ -105,7 +165,6 @@ function ScriptReview({
   onChange: (v: VideoDetail) => void;
   reload: () => Promise<void>;
 }) {
-  const c = useColors();
   const call = useApi();
   const me = useResource<Me>('/me');
   const [draft, setDraft] = useState<Script>(video.script!);
@@ -152,7 +211,7 @@ function ScriptReview({
         if (bought === 'pending') {
           Alert.alert(
             'Payment received',
-            "Your video credit is on its way. Tap Make the video again in a moment; you won't be charged twice.",
+            "Your video credit is on its way. Tap Roll camera again in a moment; you won't be charged twice.",
           );
           return;
         }
@@ -182,66 +241,122 @@ function ScriptReview({
   }
 
   const price = !me.data
-    ? ''
+    ? { price: '', caption: 'Admit one · 15 sec' }
     : !me.data.freeVideoUsed
-      ? ' (free)'
+      ? { price: 'Free', caption: 'Your first video' }
       : me.data.videoCredits > 0
-        ? ' (1 credit)'
-        : ` (${storePrice ?? '$4.99'})`;
+        ? { price: '1 credit', caption: 'Admit one · 15 sec' }
+        : { price: storePrice ?? '$4.99', caption: 'Admit one · 15 sec' };
 
   return (
-    <Screen>
-      <Title>{draft.title}</Title>
-      <Body muted>{draft.premise}</Body>
-      {draft.beats.map((b, i) => (
-        <Card key={`${b.fromSecond}-${b.toSecond}`}>
-          <Text style={{ color: c.muted, fontSize: 13, fontWeight: '700' }}>
-            {b.fromSecond}s to {b.toSecond}s
-          </Text>
-          <Body>{b.action}</Body>
-          {(b.line !== '' || b.subtitle !== '') && (
-            <>
-              <Text style={{ color: c.text, fontWeight: '700', marginTop: 4 }}>{speaker(b)}</Text>
-              <TextInput
-                value={b.subtitle}
-                onChangeText={(t) => edit(i, 'subtitle', t)}
-                multiline
-                accessibilityLabel="Subtitle"
-                style={[styles.edit, { color: c.text, borderColor: c.border }]}
-              />
-              <TextInput
-                value={b.line}
-                onChangeText={(t) => edit(i, 'line', t)}
-                multiline
-                accessibilityLabel="Spoken line"
-                style={[styles.edit, styles.small, { color: c.muted, borderColor: c.border }]}
-              />
-            </>
+    <Screen
+      footer={
+        <>
+          <ErrorText>{error}</ErrorText>
+          <Ticket
+            title="Roll camera"
+            price={price.price}
+            caption={price.caption}
+            onPress={approve}
+            busy={busy === 'approve'}
+            disabled={busy !== null}
+          />
+          {video.canRegenerate && (
+            <Button
+              title="Write a different script"
+              kind="quiet"
+              onPress={regenerate}
+              busy={busy === 'regenerate'}
+              disabled={busy !== null}
+            />
           )}
-        </Card>
-      ))}
-      <Body muted>The top line is the subtitle; the smaller one is what the cast says.</Body>
-      <Button
-        title={`Make the video${price}`}
-        onPress={approve}
-        busy={busy === 'approve'}
-        disabled={busy !== null}
-      />
-      {video.canRegenerate && (
-        <Button
-          title="Write a different script"
-          kind="secondary"
-          onPress={regenerate}
-          busy={busy === 'regenerate'}
-          disabled={busy !== null}
-        />
-      )}
-      <ErrorText>{error}</ErrorText>
+        </>
+      }
+    >
+      <Rise>
+        <View style={{ gap: 8 }}>
+          <Eyebrow>{STYLE_LABELS[video.style].label}</Eyebrow>
+          <Title>{draft.title}</Title>
+          <Body muted>{draft.premise}</Body>
+        </View>
+      </Rise>
+      <Rise index={1}>
+        <ScriptPage>
+          {draft.beats.map((b, i) => (
+            <View key={`${b.fromSecond}-${b.toSecond}`} style={styles.beat}>
+              <Text style={scriptText.timecode}>
+                {clock(b.fromSecond)} – {clock(b.toSecond)}
+              </Text>
+              <Text style={scriptText.action}>{b.action}</Text>
+              {(b.line !== '' || b.subtitle !== '') && (
+                <>
+                  <Text style={scriptText.speaker}>{speaker(b)}</Text>
+                  <ScriptInput
+                    value={b.subtitle}
+                    onChangeText={(t) => edit(i, 'subtitle', t)}
+                    label="Subtitle"
+                  />
+                  <ScriptInput
+                    value={b.line}
+                    onChangeText={(t) => edit(i, 'line', t)}
+                    label="Spoken line"
+                    spoken
+                  />
+                </>
+              )}
+            </View>
+          ))}
+        </ScriptPage>
+      </Rise>
+      <Body small muted style={{ textAlign: 'center' }}>
+        Tap a line to change it. The top line is the subtitle; the one in brackets is what the cast
+        says.
+      </Body>
     </Screen>
   );
 }
 
-/** Plays the finished video and shares the file through the share sheet. */
+/** 4 → "0:04". */
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+
+/** A line of dialogue you can edit in place, highlighted like a marker while you type. */
+function ScriptInput({
+  value,
+  onChangeText,
+  label,
+  spoken,
+}: {
+  value: string;
+  onChangeText: (t: string) => void;
+  label: string;
+  spoken?: boolean;
+}) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <View style={styles.dialogue}>
+      {spoken && <Text style={[scriptText.line, styles.spoken]}>(</Text>}
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        multiline
+        scrollEnabled={false}
+        accessibilityLabel={label}
+        selectionColor={c.ink}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={[
+          scriptText.line,
+          styles.dialogueInput,
+          spoken && styles.spoken,
+          focused && { backgroundColor: c.highlight },
+        ]}
+      />
+      {spoken && <Text style={[scriptText.line, styles.spoken]}>)</Text>}
+    </View>
+  );
+}
+
+/** Plays the finished video behind a curtain that opens, and shares the file through the share sheet. */
 function Player({ video }: { video: VideoDetail }) {
   const call = useApi();
   const player = useVideoPlayer(video.playUrl, (p) => {
@@ -284,18 +399,31 @@ function Player({ video }: { video: VideoDetail }) {
   }
 
   return (
-    <Screen>
-      <VideoView player={player} style={styles.video} contentFit="contain" nativeControls />
-      <Button title="Send to the group" onPress={share} busy={busy} />
-      <Button title="Delete video" kind="danger" onPress={remove} />
-      <ErrorText>{error}</ErrorText>
+    <Screen
+      footer={
+        <>
+          <ErrorText>{error}</ErrorText>
+          <Button title="Send to the group" onPress={share} busy={busy} />
+          <Button title="Delete video" kind="danger" onPress={remove} />
+        </>
+      }
+    >
+      <View style={{ gap: 6 }}>
+        <Eyebrow>Premiere</Eyebrow>
+        <Title>{video.title ?? STYLE_LABELS[video.style].label}</Title>
+      </View>
+      <Curtain>
+        <VideoView player={player} style={styles.video} contentFit="contain" nativeControls />
+      </Curtain>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16, padding: 12 },
-  edit: { borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, padding: 8, fontSize: 16 },
-  small: { fontSize: 14 },
-  video: { width: '100%', aspectRatio: 9 / 16, borderRadius: 16, backgroundColor: '#000' },
+  waiting: { flex: 1, justifyContent: 'center', gap: 32, paddingVertical: 24 },
+  beat: { gap: 4, paddingBottom: 10 },
+  dialogue: { flexDirection: 'row', justifyContent: 'center', paddingHorizontal: 18 },
+  dialogueInput: { flexShrink: 1, padding: 2, borderRadius: 3, minWidth: 40 },
+  spoken: { fontSize: 13, color: c.inkMuted },
+  video: { width: '100%', aspectRatio: 9 / 16, borderRadius: radius.lg, backgroundColor: '#000' },
 });

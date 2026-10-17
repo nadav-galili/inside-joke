@@ -4,8 +4,9 @@
     "slug": "inside-joke",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "insidejoke",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -25,6 +26,14 @@
       "expo-web-browser",
       "expo-notifications",
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "imageWidth": 220,
+          "backgroundColor": "#18060e"
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to take your selfie so you can star in your group's videos",
@@ -33,6 +42,7 @@
         }
       ],
       "expo-video",
+      "expo-font",
       "@sentry/react-native/expo"
     ],
     "experiments": {

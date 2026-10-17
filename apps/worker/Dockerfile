@@ -14,7 +14,8 @@ COPY apps/worker apps/worker
 RUN pnpm --filter worker... build
 
 FROM base AS runtime
-# ffmpeg burns in the subtitles and watermark; DejaVu Sans covers Hebrew.
+# ffmpeg burns in the subtitles and watermark; DejaVu Sans covers Hebrew. The watermark mark and
+# font ship in apps/worker/assets.
 RUN apk add --no-cache ffmpeg font-dejavu fontconfig
 ENV NODE_ENV=production
 COPY --from=build /repo /repo

@@ -2,12 +2,15 @@ import { isClerkAPIResponseError, useSignIn, useSignUp } from '@clerk/expo';
 import { useSignInWithApple } from '@clerk/expo/apple';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { useState } from 'react';
-import { StyleSheet, useColorScheme, View } from 'react-native';
-import { Body, Button, ErrorText, Field, Screen, Title } from '../components/ui';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInUp } from 'react-native-reanimated';
+import wordmark from '../../assets/wordmark.png';
+import { GenrePoster } from '../components/cinema';
+import { Body, Button, ErrorText, Eyebrow, Field, Rise, Screen } from '../components/ui';
+import { colors as c, fonts, type } from '../lib/theme';
 
 /** Sign in with Apple, or with a code sent by email. New emails are signed up on the way. */
 export default function SignIn() {
-  const scheme = useColorScheme();
   const { startAppleAuthenticationFlow } = useSignInWithApple();
   const { signIn } = useSignIn();
   const { signUp } = useSignUp();
@@ -75,63 +78,111 @@ export default function SignIn() {
   }
 
   return (
-    <Screen>
-      <View style={styles.hero}>
-        <Title>Inside Joke</Title>
-        <Body muted>
-          Turn your group chat's best moment into a funny video starring your friends.
+    <Screen
+      footer={
+        <Body small muted style={{ textAlign: 'center' }}>
+          Your first video is free.
         </Body>
+      }
+    >
+      <View style={styles.posters} accessibilityElementsHidden>
+        {POSTERS.map((p, i) => (
+          <Animated.View
+            key={p.title}
+            entering={FadeInUp.delay(120 + i * 110)
+              .springify()
+              .damping(14)}
+            style={[styles.poster, { transform: [{ rotate: p.tilt }, { translateY: p.drop }] }]}
+          >
+            <GenrePoster genre={p.genre} title={p.title} height={176} playable={i === 1} />
+          </Animated.View>
+        ))}
       </View>
-      <AppleAuthentication.AppleAuthenticationButton
-        buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-        buttonStyle={
-          scheme === 'dark'
-            ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-            : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-        }
-        cornerRadius={14}
-        style={{ height: 52 }}
-        onPress={apple}
-      />
-      <Body muted style={{ textAlign: 'center' }}>
-        or
-      </Body>
-      {step === 'email' ? (
-        <>
-          <Field
-            label="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoComplete="email"
-            keyboardType="email-address"
-            placeholder="you@example.com"
+      <Rise index={3}>
+        <View style={styles.hero}>
+          <Image source={wordmark} accessibilityLabel="Inside Joke" style={styles.wordmark} />
+          <Text style={[type.hero, { color: c.text }]}>
+            Your group chat,{'\n'}
+            <Text style={{ color: c.accent }}>now showing.</Text>
+          </Text>
+          <Body muted>
+            Turn the chat's best moment into a 15-second film starring your friends.
+          </Body>
+        </View>
+      </Rise>
+      <Rise index={4}>
+        <View style={{ gap: 14 }}>
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+            cornerRadius={18}
+            style={{ height: 56 }}
+            onPress={apple}
           />
-          <Button
-            title="Email me a code"
-            onPress={sendCode}
-            busy={busy}
-            disabled={!email.includes('@')}
-          />
-        </>
-      ) : (
-        <>
-          <Field
-            label={`Code sent to ${email}`}
-            value={code}
-            onChangeText={setCode}
-            keyboardType="number-pad"
-            autoComplete="one-time-code"
-          />
-          <Button title="Continue" onPress={verify} busy={busy} disabled={code.trim().length < 6} />
-          <Button title="Use another email" kind="secondary" onPress={() => setStep('email')} />
-        </>
-      )}
-      <ErrorText>{error}</ErrorText>
+          <View style={styles.or}>
+            <View style={styles.rule} />
+            <Eyebrow color={c.faint}>or with email</Eyebrow>
+            <View style={styles.rule} />
+          </View>
+          {step === 'email' ? (
+            <>
+              <Field
+                label="Email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                autoComplete="email"
+                keyboardType="email-address"
+                placeholder="you@example.com"
+              />
+              <Button
+                title="Email me a code"
+                kind="secondary"
+                onPress={sendCode}
+                busy={busy}
+                disabled={!email.includes('@')}
+              />
+            </>
+          ) : (
+            <>
+              <Field
+                label={`Code sent to ${email}`}
+                value={code}
+                onChangeText={setCode}
+                keyboardType="number-pad"
+                autoComplete="one-time-code"
+                autoFocus
+                style={styles.code}
+              />
+              <Button
+                title="Continue"
+                onPress={verify}
+                busy={busy}
+                disabled={code.trim().length < 6}
+              />
+              <Button title="Use another email" kind="quiet" onPress={() => setStep('email')} />
+            </>
+          )}
+          <ErrorText>{error}</ErrorText>
+        </View>
+      </Rise>
     </Screen>
   );
 }
 
+/** Sample posters for the welcome screen. Made-up titles in each genre, never real films. */
+const POSTERS = [
+  { genre: 'telenovela', title: 'Who Finished the Hummus', tilt: '-9deg', drop: 18 },
+  { genre: 'action_trailer_80s', title: 'The Bluff of the Century', tilt: '0deg', drop: 0 },
+  { genre: 'nature_documentary', title: 'Late Again, Dani', tilt: '9deg', drop: 18 },
+] as const;
+
 const styles = StyleSheet.create({
-  hero: { marginTop: 80, marginBottom: 24, gap: 8 },
+  posters: { flexDirection: 'row', justifyContent: 'center', marginTop: 24, marginBottom: 8 },
+  poster: { width: 124, marginHorizontal: -10 },
+  hero: { gap: 14 },
+  wordmark: { width: 168, height: 168 * (172 / 524), marginBottom: 4 },
+  or: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 2 },
+  rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: c.border },
+  code: { fontFamily: fonts.display, fontSize: 28, letterSpacing: 8, textAlign: 'center' },
 });
