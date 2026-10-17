@@ -1,4 +1,4 @@
-import type { VideoStyle } from '@insidejoke/shared';
+import { VIDEO_STYLES, type VideoStyle } from '@insidejoke/shared';
 import { router, useFocusEffect } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useCallback, useEffect, useState, type ComponentType } from 'react';
@@ -136,29 +136,33 @@ function useBeat(active: boolean, ms: number, max: number) {
 // Page 1: the samples. Each starts as the group chat it came from, then cuts hard to the film.
 
 /** How long the chat shows before the cut to the film. */
-const CHAT_MS = 1900;
+const CHAT_MS = 1700;
 const BUBBLE_MS = 380;
 
 /**
- * Plays the samples one after another. A tap on the film skips to the next one, and the chip turns
- * the sound on. With reduced motion on, a sample loops until it's tapped instead of moving on.
+ * Plays the samples one after another. A tap during the chat cuts straight to the film, a tap on
+ * the film skips to the next sample, and the chip turns the sound on. With reduced motion on, a sample loops until it's tapped instead of moving on.
  */
 const SampleReel: Stage = ({ active, height }) => {
   const still = useReducedMotion();
   const focused = useFocused();
   const playing = active && focused;
   const [i, setI] = useState(0);
-  const [film, setFilm] = useState(false);
+  const [showFilm, setShowFilm] = useState(false);
   const [muted, setMuted] = useState(true);
   const progress = useSharedValue(0);
   const sample = SAMPLES[i]!;
-  const advance = useCallback(() => setI((v) => (v + 1) % SAMPLES.length), []);
+  // The chat comes back in the same update, so the next film never mounts for a frame.
+  const advance = useCallback(() => {
+    setShowFilm(false);
+    setI((v) => (v + 1) % SAMPLES.length);
+  }, []);
 
   useEffect(() => {
-    setFilm(false);
+    setShowFilm(false);
     progress.value = 0;
     if (!playing) return;
-    const t = setTimeout(() => setFilm(true), CHAT_MS);
+    const t = setTimeout(() => setShowFilm(true), CHAT_MS);
     return () => clearTimeout(t);
   }, [playing, i, progress]);
 
@@ -169,12 +173,12 @@ const SampleReel: Stage = ({ active, height }) => {
     <View style={styles.center}>
       <Pressy
         haptic="tick"
-        onPress={advance}
+        onPress={showFilm ? advance : () => setShowFilm(true)}
         accessibilityRole="button"
         accessibilityLabel={`Sample video: ${sample.title}, a ${STYLE_LABELS[sample.genre].label.toLowerCase()}. Tap for the next one.`}
         style={[styles.frame, { width: frameW, height: frameH }]}
       >
-        {film && playing ? (
+        {showFilm && playing ? (
           <Film
             key={sample.title}
             sample={sample}
@@ -194,7 +198,7 @@ const SampleReel: Stage = ({ active, height }) => {
             </View>
           ))}
         </View>
-        {film && (
+        {showFilm && playing && (
           <Pressy
             haptic="tick"
             hitSlop={10}
@@ -231,19 +235,25 @@ function SampleChat({ sample }: { sample: Sample }) {
   const shown = useBeat(true, BUBBLE_MS, sample.chat.length);
   return (
     <View style={styles.sampleChat}>
-      {sample.chat.slice(0, shown + 1).map((m, k) => (
-        <Animated.View
-          key={k}
-          entering={FadeInUp.springify().damping(16)}
-          style={[styles.message, styles.sampleMessage]}
-        >
-          <Avatar name={m.name} size={26} />
-          <View style={styles.bubble}>
-            <Text style={styles.bubbleName}>{m.name}</Text>
-            <Text style={styles.bubbleText}>{m.text}</Text>
-          </View>
-        </Animated.View>
-      ))}
+      {sample.chat.slice(0, shown + 1).map((m, k) =>
+        'note' in m ? (
+          <Animated.Text key={k} entering={FadeIn.duration(300)} style={styles.chatNote}>
+            {m.note}
+          </Animated.Text>
+        ) : (
+          <Animated.View
+            key={k}
+            entering={FadeInUp.springify().damping(16)}
+            style={[styles.message, styles.sampleMessage]}
+          >
+            <Avatar name={m.name} size={26} />
+            <View style={styles.bubble}>
+              <Text style={styles.bubbleName}>{m.name}</Text>
+              <Text style={styles.bubbleText}>{m.text}</Text>
+            </View>
+          </Animated.View>
+        ),
+      )}
       <Text style={styles.sampleGenre}>{STYLE_LABELS[sample.genre].label.toUpperCase()}</Text>
     </View>
   );
@@ -271,7 +281,8 @@ function Film({
   });
   useEffect(() => {
     player.muted = muted;
-  }, [player, muted]);
+    player.loop = loop;
+  }, [player, muted, loop]);
   useEffect(() => {
     const time = player.addListener('timeUpdate', ({ currentTime }) => {
       if (player.duration > 0) {
@@ -378,12 +389,8 @@ const CastCall: Stage = ({ active }) => {
 
 // Page 4: pick a genre, and the script appears.
 
-const GENRES: VideoStyle[] = [
-  'telenovela',
-  'action_trailer_80s',
-  'nature_documentary',
-  'sports_commentary',
-];
+// Telenovela first, since it's the one picked.
+const GENRES: VideoStyle[] = ['telenovela', ...VIDEO_STYLES.filter((g) => g !== 'telenovela')];
 
 const GenrePick: Stage = ({ active, height }) => {
   const step = useBeat(active, 700, 2);
@@ -503,6 +510,7 @@ const styles = StyleSheet.create({
   },
   sampleChat: { flex: 1, justifyContent: 'center', gap: 8, paddingHorizontal: 12 },
   sampleMessage: { maxWidth: '100%' },
+  chatNote: { ...type.small, color: c.faint, textAlign: 'center', fontStyle: 'italic' },
   sampleGenre: {
     position: 'absolute',
     bottom: 18,
