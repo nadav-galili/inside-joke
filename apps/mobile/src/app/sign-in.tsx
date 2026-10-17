@@ -5,9 +5,8 @@ import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import logo from '../../assets/logo.png';
-import { Body, Button, ErrorText, Eyebrow, Field, Rise, Screen } from '../components/ui';
-import * as WebBrowser from 'expo-web-browser';
-import { API_URL } from '../lib/api';
+import { Body, Button, ErrorText, Eyebrow, Field, Pressy, Rise, Screen } from '../components/ui';
+import { openPage } from '../lib/api';
 import { SAMPLES } from '../lib/samples';
 import { STYLE_LABELS } from '../lib/styles';
 import { colors as c, fonts, radius, type } from '../lib/theme';
@@ -87,22 +86,21 @@ export default function SignIn() {
           <Body small muted style={{ textAlign: 'center' }}>
             Your first video is free.
           </Body>
-          <Text style={styles.legal}>
-            By continuing, you agree to the{' '}
-            <Text style={styles.link} onPress={() => openPage('/terms')} accessibilityRole="link">
-              Terms
-            </Text>{' '}
-            and the{' '}
-            <Text style={styles.link} onPress={() => openPage('/privacy')} accessibilityRole="link">
-              Privacy Policy
-            </Text>
-            .
-          </Text>
+          <View style={styles.legalRow}>
+            <Text style={styles.legal}>By continuing, you agree to the</Text>
+            <Pressy haptic="none" accessibilityRole="link" onPress={() => openPage('/terms')}>
+              <Text style={[styles.legal, styles.link]}>Terms</Text>
+            </Pressy>
+            <Text style={styles.legal}>and</Text>
+            <Pressy haptic="none" accessibilityRole="link" onPress={() => openPage('/privacy')}>
+              <Text style={[styles.legal, styles.link]}>Privacy Policy</Text>
+            </Pressy>
+          </View>
         </View>
       }
     >
       <View style={styles.posters} accessibilityElementsHidden>
-        {SAMPLES.map((p, i) => (
+        {SAMPLES.slice(0, 3).map((p, i) => (
           <Animated.View
             key={p.title}
             entering={FadeInUp.delay(120 + i * 110)
@@ -110,7 +108,9 @@ export default function SignIn() {
               .damping(14)}
             style={[
               styles.poster,
-              { transform: [{ rotate: TILTS[i]! }, { translateY: i === 1 ? 0 : 18 }] },
+              {
+                transform: [{ rotate: `${(i - 1) * 9}deg` }, { translateY: Math.abs(i - 1) * 18 }],
+              },
             ]}
           >
             <Image source={p.poster} style={styles.still} />
@@ -191,9 +191,6 @@ export default function SignIn() {
   );
 }
 
-const TILTS = ['-9deg', '0deg', '9deg'];
-const openPage = (path: string) => void WebBrowser.openBrowserAsync(`${API_URL}${path}`);
-
 const styles = StyleSheet.create({
   posters: { flexDirection: 'row', justifyContent: 'center', marginTop: 24, marginBottom: 8 },
   poster: {
@@ -218,7 +215,8 @@ const styles = StyleSheet.create({
     textShadowColor: '#000000cc',
     textShadowRadius: 4,
   },
-  legal: { ...type.small, color: c.faint, textAlign: 'center' },
+  legalRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 4 },
+  legal: { ...type.small, color: c.faint },
   link: { color: c.muted, textDecorationLine: 'underline' },
   hero: { gap: 14 },
   logo: { width: 76, height: 76, borderRadius: 18, marginBottom: 4 },

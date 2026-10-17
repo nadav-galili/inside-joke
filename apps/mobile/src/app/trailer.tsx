@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useVideoPlayer, VideoView } from 'expo-video';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import poster from '../../assets/trailer/trailer.jpg';
@@ -12,10 +12,18 @@ import { colors as c, fonts, radius } from '../lib/theme';
 /** The 27-second tour of the app (the App Store preview), with sound, before anyone signs in. */
 export default function Trailer() {
   const insets = useSafeAreaInsets();
+  // The end of the film and a tap on Close can land together; only go back once.
+  const closed = useRef(false);
+  const close = () => {
+    if (closed.current) return;
+    closed.current = true;
+    if (router.canGoBack()) router.back();
+    else router.replace('/');
+  };
   const player = useVideoPlayer(video, (p) => p.play());
   useEffect(() => {
     track('trailer_opened');
-    const end = player.addListener('playToEnd', () => router.back());
+    const end = player.addListener('playToEnd', close);
     return () => end.remove();
   }, [player]);
   return (
@@ -25,7 +33,7 @@ export default function Trailer() {
       <Pressy
         haptic="tick"
         hitSlop={12}
-        onPress={() => router.back()}
+        onPress={close}
         accessibilityRole="button"
         accessibilityLabel="Close the tour"
         style={[styles.close, { top: insets.top + 8 }]}

@@ -92,6 +92,7 @@ export default function Welcome() {
               {i === 0 && (
                 <Pressy
                   accessibilityRole="button"
+                  accessibilityLabel="Take the tour of the app"
                   hitSlop={8}
                   onPress={() => router.push('/trailer')}
                   style={styles.tour}

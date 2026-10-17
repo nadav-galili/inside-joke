@@ -41,10 +41,6 @@ function Routes() {
         animation: 'default',
       }}
     >
-      <Stack.Screen
-        name="trailer"
-        options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }}
-      />
       <Stack.Protected guard={!isSignedIn}>
         <Stack.Screen name="welcome" options={{ headerShown: false }} />
         <Stack.Screen name="sign-in" options={{ title: '' }} />
@@ -67,6 +63,11 @@ function Routes() {
         <Stack.Screen name="groups/[id]/new-video" options={{ title: '' }} />
         <Stack.Screen name="videos/[id]" options={{ title: '' }} />
       </Stack.Protected>
+      {/* After the guards, so it's never the first screen a launch lands on. */}
+      <Stack.Screen
+        name="trailer"
+        options={{ headerShown: false, presentation: 'fullScreenModal', animation: 'fade' }}
+      />
     </Stack>
   );
 }

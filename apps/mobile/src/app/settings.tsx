@@ -1,7 +1,6 @@
 import { useClerk } from '@clerk/expo';
 import type { Me } from '@insidejoke/shared';
 import { router, useFocusEffect } from 'expo-router';
-import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useState } from 'react';
 import { Alert, StyleSheet, View } from 'react-native';
 import {
@@ -17,7 +16,7 @@ import {
   Screen,
 } from '../components/ui';
 import { analyticsEnabled, resetAnalytics, setAnalyticsEnabled } from '../lib/analytics';
-import { API_URL, useApi, useResource } from '../lib/api';
+import { openPage, useApi, useResource } from '../lib/api';
 import { colors as c } from '../lib/theme';
 
 export default function Settings() {
@@ -79,8 +78,6 @@ export default function Settings() {
     );
   }
 
-  const open = (path: string) => void WebBrowser.openBrowserAsync(`${API_URL}${path}`);
-
   if (!me.data) return <Loading />;
   const credits = me.data.videoCredits;
   return (
@@ -139,9 +136,9 @@ export default function Settings() {
       <Rise index={3}>
         <View style={styles.footer}>
           <View style={styles.links}>
-            <Button title="Privacy" kind="quiet" onPress={() => open('/privacy')} />
-            <Button title="Terms" kind="quiet" onPress={() => open('/terms')} />
-            <Button title="Support" kind="quiet" onPress={() => open('/support')} />
+            <Button title="Privacy" kind="quiet" onPress={() => openPage('/privacy')} />
+            <Button title="Terms" kind="quiet" onPress={() => openPage('/terms')} />
+            <Button title="Support" kind="quiet" onPress={() => openPage('/support')} />
           </View>
           <Button title="Delete account" kind="danger" onPress={deleteAccount} busy={busy} />
         </View>
