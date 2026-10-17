@@ -19,3 +19,8 @@ apps/mobile/ios/
 # Android build artifacts (`eas build --local` writes them next to eas.json).
 *.apk
 *.aab
+
+# Simulator captures for store media and design review; kept out of git and EAS uploads.
+.screenshots-captures/
+.preview-captures/
+.design-captures/
