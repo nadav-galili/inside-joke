@@ -8,7 +8,7 @@ import {
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { AuthVariables } from './auth.ts';
-import { faces, members, users, type Db } from '@insidejoke/db';
+import { faces, groups, members, users, videos, type Db } from '@insidejoke/db';
 import { newSelfieKey, userSelfiePrefix, type Storage } from './storage.ts';
 
 export type User = typeof users.$inferSelect;
@@ -23,7 +23,10 @@ export async function currentUser(db: Db, clerkUserId: string): Promise<User> {
   return created;
 }
 
-export function meRoutes(db: Db, storage: Storage) {
+/** Deletes the sign-in account itself, once the user's data is gone. */
+export type DeleteAuthUser = (clerkUserId: string) => Promise<void>;
+
+export function meRoutes(db: Db, storage: Storage, deleteAuthUser: DeleteAuthUser) {
   const app = new Hono<{ Variables: AuthVariables }>();
 
   app.get('/', async (c) => {
@@ -118,6 +121,34 @@ export function meRoutes(db: Db, storage: Storage) {
         .where(and(eq(faces.r2Key, user.selfieKey!), isNull(faces.revokedAt)));
     });
     await storage.remove(user.selfieKey);
+    return c.json({ ok: true });
+  });
+
+  /**
+   * Deletes the account and everything it made (guideline 5.1.1(v)): the user's selfie, their
+   * groups with the friends' selfies in them, and every video, then the sign-in account.
+   */
+  app.delete('/', async (c) => {
+    const clerkUserId = c.get('clerkUserId');
+    const user = await currentUser(db, clerkUserId);
+    const keys = await db.transaction(async (tx) => {
+      const groupIds = tx.select({ id: groups.id }).from(groups).where(eq(groups.ownerId, user.id));
+      const faceKeys = await tx
+        .select({ key: faces.r2Key })
+        .from(faces)
+        .innerJoin(members, eq(members.id, faces.memberId))
+        .where(inArray(members.groupId, groupIds));
+      const videoKeys = await tx
+        .select({ key: videos.r2Key })
+        .from(videos)
+        .where(eq(videos.creatorId, user.id));
+      // Groups, members, faces, videos, jobs and purchases go with the user row.
+      await tx.delete(users).where(eq(users.id, user.id));
+      return [user.selfieKey, ...faceKeys.map((r) => r.key), ...videoKeys.map((r) => r.key)];
+    });
+    const unique = [...new Set(keys.filter((k): k is string => k !== null))];
+    await Promise.all(unique.map((key) => storage.remove(key)));
+    await deleteAuthUser(clerkUserId);
     return c.json({ ok: true });
   });
 

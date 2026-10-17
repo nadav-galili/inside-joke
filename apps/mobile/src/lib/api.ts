@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/expo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 /** A non-2xx answer from the API, with its status and error code. */
 export class ApiError extends Error {

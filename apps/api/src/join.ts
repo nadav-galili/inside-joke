@@ -15,7 +15,7 @@ import { joinSelfiePrefix, newSelfieKey, type Storage } from './storage.ts';
 const newManageToken = () =>
   Buffer.from(crypto.getRandomValues(new Uint8Array(24))).toString('base64url');
 
-const page = (title: string, body: ReturnType<typeof html>) =>
+export const page = (title: string, body: ReturnType<typeof html>) =>
   html`<!doctype html>
     <html lang="en">
       <head>

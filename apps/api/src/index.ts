@@ -1,3 +1,4 @@
+import { createClerkClient } from '@clerk/backend';
 import { serve } from '@hono/node-server';
 import * as Sentry from '@sentry/node';
 import { createApp } from './app.ts';
@@ -17,8 +18,11 @@ const port = Number(process.env.PORT ?? 3000);
 const db = createDb(required('DATABASE_URL'));
 await runMigrations(db);
 
+const clerkSecretKey = required('CLERK_SECRET_KEY');
+const clerk = createClerkClient({ secretKey: clerkSecretKey });
+
 const app = createApp(db, {
-  verifyToken: clerkVerifyToken(required('CLERK_SECRET_KEY')),
+  verifyToken: clerkVerifyToken(clerkSecretKey),
   storage: r2Storage({
     accountId: required('R2_ACCOUNT_ID'),
     bucket: required('R2_BUCKET'),
@@ -27,6 +31,10 @@ const app = createApp(db, {
   }),
   publicUrl: required('PUBLIC_URL').replace(/\/$/, ''),
   revenueCatWebhookAuth: required('REVENUECAT_WEBHOOK_AUTH'),
+  deleteAuthUser: async (id) => {
+    await clerk.users.deleteUser(id);
+  },
+  supportEmail: process.env.SUPPORT_EMAIL,
 });
 serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, (info) => {
   console.log(`api listening on :${info.port}`);
