@@ -1,4 +1,4 @@
-import { faces, generationJobs, videos } from '@insidejoke/db';
+import { faces, generationJobs, users, videos } from '@insidejoke/db';
 import { eq, sql } from 'drizzle-orm';
 import { spawnSync } from 'node:child_process';
 import { copyFile, mkdtemp } from 'node:fs/promises';
@@ -61,6 +61,8 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
         await copyFile(file, copy);
         uploaded.set(key, copy);
       },
+      remove: async () => {},
+      list: async function* () {},
     };
     const requests: VideoRequest[] = [];
     const moderated: string[] = [];
@@ -85,6 +87,7 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
         moderated.push(...frames);
         return { safe: true, reason: 'fine', costUsd: 0.01, model: 'test-mod' };
       },
+      moderateScript: async () => ({ safe: true, reason: 'fine', costUsd: 0, model: 'm' }),
       download: async (_url, file) => copyFile(rawVideo, file),
     });
 
@@ -129,8 +132,14 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
         called = true;
         throw new Error('should not be called');
       },
-      storage: { readUrl: async (k) => k, uploadFile: async () => {} },
+      storage: {
+        readUrl: async (k) => k,
+        uploadFile: async () => {},
+        remove: async () => {},
+        list: async function* () {},
+      },
       moderate: async () => ({ safe: true, reason: '', costUsd: 0, model: 'm' }),
+      moderateScript: async () => ({ safe: true, reason: 'fine', costUsd: 0, model: 'm' }),
     });
     await db.insert(generationJobs).values({ videoId: video.id, step: 'video' });
     await runJob(db, (await claimNextJob(db))!, steps);
@@ -165,8 +174,14 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
         }
         return { videoUrl: 'https://fal.test/v.mp4', costUsd: 0.75, model: 'm', requestId };
       },
-      storage: { readUrl: async (k) => k, uploadFile: async () => {} },
+      storage: {
+        readUrl: async (k) => k,
+        uploadFile: async () => {},
+        remove: async () => {},
+        list: async function* () {},
+      },
       moderate: async () => ({ safe: true, reason: '', costUsd: 0, model: 'm' }),
+      moderateScript: async () => ({ safe: true, reason: 'fine', costUsd: 0, model: 'm' }),
     });
     await db.insert(generationJobs).values({ videoId: video.id, step: 'video' });
     const first = (await claimNextJob(db))!;
@@ -210,8 +225,11 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
         uploadFile: async () => {
           uploaded = true;
         },
+        remove: async () => {},
+        list: async function* () {},
       },
       moderate: async () => ({ safe: false, reason: 'gore', costUsd: 0.01, model: 'm' }),
+      moderateScript: async () => ({ safe: true, reason: 'fine', costUsd: 0, model: 'm' }),
       download: async (_url, file) => copyFile(rawVideo, file),
     });
     await db.insert(generationJobs).values({ videoId: video.id, step: 'finish' });
@@ -219,6 +237,40 @@ describe.skipIf(!testDbUrl || !hasFfmpeg)('the pipeline with fake providers', ()
     const [row] = await db.select().from(videos).where(eq(videos.id, video.id));
     expect(uploaded).toBe(false);
     expect(row!.status).toBe('failed');
+    expect(await claimNextJob(db)).toBeNull();
+  });
+
+  it('never films a script that fails the words check, and gives the credit back', async () => {
+    const { video, cast } = await seedVideo(db);
+    await db
+      .update(videos)
+      .set({ script: sampleScript(cast), status: 'paid', watermarked: false })
+      .where(eq(videos.id, video.id));
+    let filmed = false;
+    const steps = createSteps(db, {
+      writeScript: async () => {
+        throw new Error('unused');
+      },
+      generateVideo: async () => {
+        filmed = true;
+        throw new Error('should not be called');
+      },
+      storage: {
+        readUrl: async (k) => k,
+        uploadFile: async () => {},
+        remove: async () => {},
+        list: async function* () {},
+      },
+      moderate: async () => ({ safe: true, reason: '', costUsd: 0, model: 'm' }),
+      moderateScript: async () => ({ safe: false, reason: 'a slur', costUsd: 0, model: 'm' }),
+    });
+    await db.insert(generationJobs).values({ videoId: video.id, step: 'video' });
+    await runJob(db, (await claimNextJob(db))!, steps);
+    const [row] = await db.select().from(videos).where(eq(videos.id, video.id));
+    const [creator] = await db.select().from(users).where(eq(users.id, video.creatorId));
+    expect(filmed).toBe(false);
+    expect(row!.status).toBe('failed');
+    expect(creator!.videoCredits).toBe(1);
     expect(await claimNextJob(db)).toBeNull();
   });
 });

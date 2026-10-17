@@ -2,6 +2,7 @@ import {
   AI_CONSENT_VERSION,
   createVideoSchema,
   MAX_SCRIPT_ATTEMPTS,
+  reportVideoSchema,
   MAX_SCRIPTS_PER_DAY,
   updateScriptSchema,
   type ApproveResult,
@@ -9,6 +10,7 @@ import {
   type Script,
   type VideoDetail,
 } from '@insidejoke/shared';
+import * as Sentry from '@sentry/node';
 import { and, count, eq, gt, inArray, isNull, ne, type SQL } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { AuthVariables } from './auth.ts';
@@ -17,6 +19,7 @@ import {
   generationJobs,
   groups,
   members,
+  reports,
   oneDayAgo,
   users,
   videoCast,
@@ -238,6 +241,24 @@ export function videoRoutes(db: Db, storage: Storage, freeVideosPerDay: number) 
     if (!result) return c.json({ error: 'not_approvable' }, 409);
     if (!('error' in result)) return c.json(result, 200);
     return c.json(result, result.error === 'free_limit' ? 429 : 402);
+  });
+
+  /**
+   * Reports a video to us for review (guideline 1.2). The report is logged and raised in Sentry so
+   * someone looks at it; the creator can also delete the video at once.
+   */
+  app.post('/:id/report', async (c) => {
+    const parsed = reportVideoSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: 'invalid_body' }, 400);
+    const { video } = await ownVideo(c.get('clerkUserId'), c.req.param('id'));
+    if (!video) return c.json({ error: 'not_found' }, 404);
+    await db.insert(reports).values({ videoId: video.id, reason: parsed.data.reason });
+    Sentry.captureMessage('video reported', {
+      level: 'warning',
+      tags: { reason: parsed.data.reason },
+      extra: { videoId: video.id },
+    });
+    return c.json({ ok: true });
   });
 
   /** Deletes the video for good, including the file. */

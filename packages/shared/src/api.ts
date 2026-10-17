@@ -66,6 +66,17 @@ export const aiConsentSchema = z.object({
   version: z.literal(AI_CONSENT_VERSION),
   adult: z.literal(true),
 });
+/** Why someone reports a finished video (guideline 1.2). */
+export const REPORT_REASONS = {
+  offensive: 'Offensive or harmful',
+  no_consent: "Someone in it didn't agree to be in it",
+  other: 'Something else',
+} as const;
+export type ReportReason = keyof typeof REPORT_REASONS;
+export const reportVideoSchema = z.object({
+  reason: z.enum(Object.keys(REPORT_REASONS) as [ReportReason]),
+});
+
 export const pushTokenSchema = z.object({ token: z.string().min(1).max(200) });
 /** The longest spoken line or subtitle a user can type in; the line goes into the video prompt. */
 export const MAX_SCRIPT_LINE = 200;

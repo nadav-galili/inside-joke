@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { ownedByRun, type ClaimedJob } from './claim.ts';
 import { buildVideoPrompt } from './prompt.ts';
-import type { Moderator } from './providers/moderator.ts';
+import type { Moderator, ScriptModerator } from './providers/moderator.ts';
 import type { ScriptWriter } from './providers/script-writer.ts';
 import type { VideoGenerator } from './providers/video-generator.ts';
 import { extractFrames, renderFinal } from './render.ts';
@@ -29,6 +29,7 @@ export type StepDeps = {
   generateVideo: VideoGenerator;
   storage: Storage;
   moderate: Moderator;
+  moderateScript: ScriptModerator;
   render?: typeof renderFinal;
   download?: (url: string, file: string) => Promise<void>;
 };
@@ -96,6 +97,9 @@ export function createSteps(db: Db, deps: StepDeps): Record<GenerationStep, Step
     async video(job) {
       const video = await loadVideo(db, job.videoId);
       if (!video.script) throw new Error('video has no script yet');
+      // Nothing is filmed before the words are checked; the user may have rewritten them.
+      const check = await deps.moderateScript(video.script);
+      if (!check.safe) throw new ModerationBlockedError(check.reason);
       const cast = await loadCast(db, job.videoId);
       const faceKeys = new Map(cast.map((c) => [c.memberId, c.faceKey]));
       // Image N in the prompt is the Nth cast member of the script, so the URLs follow that order.
@@ -120,7 +124,7 @@ export function createSteps(db: Db, deps: StepDeps): Record<GenerationStep, Step
       });
       return {
         output: { videoUrl: generated.videoUrl },
-        costUsd: generated.costUsd,
+        costUsd: generated.costUsd + check.costUsd,
         provider: 'fal',
         model: generated.model,
         requestId: generated.requestId,

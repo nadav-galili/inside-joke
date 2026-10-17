@@ -362,6 +362,21 @@ describe.skipIf(!testDbUrl)('api', () => {
     expect((await me.call('GET', `/videos/${videoId}`)).status).toBe(404);
   });
 
+  it("logs a report on the creator's video, and only their own", async () => {
+    const { me, videoId } = await scriptedVideo();
+    expect((await me.call('POST', `/videos/${videoId}/report`, { reason: 'spam' })).status).toBe(
+      400,
+    );
+    expect(
+      (await client().call('POST', `/videos/${videoId}/report`, { reason: 'other' })).status,
+    ).toBe(404);
+    expect(
+      (await me.call('POST', `/videos/${videoId}/report`, { reason: 'offensive' })).status,
+    ).toBe(200);
+    const logged = await db.select().from(reports).where(eq(reports.videoId, videoId));
+    expect(logged.map((r) => r.reason)).toEqual(['offensive']);
+  });
+
   it('needs the 18+ confirmation with AI consent', async () => {
     const { call } = client();
     const res = await call('POST', '/me/ai-consent', { version: AI_CONSENT_VERSION });

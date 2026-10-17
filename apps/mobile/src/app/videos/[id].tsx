@@ -1,8 +1,10 @@
 import {
   MAX_SCRIPT_LINE,
+  REPORT_REASONS,
   type ApproveResult,
   type Beat,
   type Me,
+  type ReportReason,
   type Script,
   type VideoDetail,
 } from '@insidejoke/shared';
@@ -404,6 +406,31 @@ function Player({ video }: { video: VideoDetail }) {
     }
   }
 
+  async function report(reason: ReportReason) {
+    try {
+      await call(`/videos/${video.id}/report`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+      Alert.alert(
+        'Thanks for telling us',
+        'We review every report. You can also delete the video.',
+      );
+    } catch {
+      Alert.alert("We couldn't send your report", 'Please try again.');
+    }
+  }
+
+  function askReport() {
+    Alert.alert('Report this video', 'What is wrong with it?', [
+      ...Object.entries(REPORT_REASONS).map(([reason, text]) => ({
+        text,
+        onPress: () => void report(reason as ReportReason),
+      })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }
+
   function remove() {
     Alert.alert('Delete this video?', "It's deleted for good.", [
       { text: 'Cancel', style: 'cancel' },
@@ -425,6 +452,7 @@ function Player({ video }: { video: VideoDetail }) {
           <ErrorText>{error}</ErrorText>
           <Button title="Send to the group" onPress={share} busy={busy} />
           <Button title="Delete video" kind="danger" onPress={remove} />
+          <Button title="Report a problem" kind="quiet" onPress={askReport} />
         </>
       }
     >
