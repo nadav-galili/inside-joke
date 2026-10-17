@@ -12,6 +12,7 @@ import {
   Checkbox,
   Rise,
   Screen,
+  success,
   Title,
 } from '../../components/ui';
 import { colors as c } from '../../lib/theme';
@@ -39,9 +40,10 @@ export default function AiConsent() {
       });
       await setAnalyticsEnabled(stats);
       track('ai_consent_given');
+      success();
       router.replace('/');
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError("We couldn't save your answer. Please try again.");
       setBusy(false);
     }
   }
@@ -51,15 +53,20 @@ export default function AiConsent() {
       footer={
         <>
           <ErrorText>{error}</ErrorText>
-          <Checkbox checked={stats} onToggle={() => setStats(!stats)} style={styles.check}>
-            <Body>
-              Optional: share usage stats (which screens you use) to help us improve the app.
-            </Body>
-          </Checkbox>
           <Checkbox checked={adult} onToggle={() => setAdult(!adult)} style={styles.check}>
             <Body>I'm 18 or older.</Body>
           </Checkbox>
-          <Button title="I agree, let's go" onPress={agree} busy={busy} disabled={!adult} />
+          <Checkbox checked={stats} onToggle={() => setStats(!stats)} style={styles.check}>
+            <Body muted>
+              Optional: share usage stats (which screens you use) to help us improve the app.
+            </Body>
+          </Checkbox>
+          <Button
+            title={adult ? "I agree, let's go" : "Confirm you're 18 or older"}
+            onPress={agree}
+            busy={busy}
+            disabled={!adult}
+          />
         </>
       }
     >

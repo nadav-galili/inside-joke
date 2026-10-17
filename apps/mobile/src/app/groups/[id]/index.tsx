@@ -65,7 +65,11 @@ export default function Group() {
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
-          await call(`/groups/${id}/members/${memberId}`, { method: 'DELETE' }).catch(() => {});
+          try {
+            await call(`/groups/${id}/members/${memberId}`, { method: 'DELETE' });
+          } catch {
+            Alert.alert(`We couldn't remove ${name}`, 'Please try again.');
+          }
           void group.reload();
         },
       },
@@ -73,21 +77,27 @@ export default function Group() {
   }
 
   const needed = MIN_CAST - castable.length;
+  const castReady = needed <= 0;
+  const meWithoutFace = g.members.some((m) => m.isMe && !m.hasFace);
+  const addSelfie = () => router.push('/onboarding/selfie');
   return (
     <Screen
       footer={
         <>
-          {needed > 0 && (
+          {!castReady && (
             <Body small muted style={{ textAlign: 'center' }}>
               {needed === 1 ? 'One more friend needs' : `${needed} more friends need`} to add a
               selfie before you can make a video.
             </Body>
           )}
-          <Button
-            title="Make a video"
-            onPress={() => router.push(`/groups/${id}/new-video`)}
-            disabled={needed > 0}
-          />
+          {/* Until the cast is big enough, the main action is the one that grows it. */}
+          {castReady ? (
+            <Button title="Make a video" onPress={() => router.push(`/groups/${id}/new-video`)} />
+          ) : meWithoutFace ? (
+            <Button title="Add your selfie" onPress={addSelfie} />
+          ) : (
+            <Button title="Invite friends to cast" onPress={invite} />
+          )}
         </>
       }
     >
@@ -149,6 +159,18 @@ export default function Group() {
                   {m.hasFace ? 'Ready to film' : 'Waiting for a selfie'}
                 </Body>
               </View>
+              {m.isMe && !m.hasFace && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add your selfie"
+                  hitSlop={10}
+                  onPress={addSelfie}
+                >
+                  <Text style={[type.small, { color: c.accent, fontWeight: '700' }]}>
+                    Add selfie
+                  </Text>
+                </Pressable>
+              )}
               {!m.isMe && (
                 <Pressable
                   accessibilityRole="button"
@@ -162,7 +184,7 @@ export default function Group() {
             </View>
           ))}
         </Card>
-        <Button title="Invite friends" kind="secondary" onPress={invite} />
+        {castReady && <Button title="Invite friends" kind="secondary" onPress={invite} />}
       </View>
     </Screen>
   );
