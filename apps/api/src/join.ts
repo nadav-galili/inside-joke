@@ -5,8 +5,9 @@ import {
   FACE_CONSENT_VERSION,
   joinGroupSchema,
   MAX_DISPLAY_NAME,
+  MAX_GROUP_MEMBERS,
 } from '@insidejoke/shared';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { Hono } from 'hono';
 import { html, raw } from 'hono/html';
 import { faces, groups, members, reports, videoCast, videos, type Db } from '@insidejoke/db';
@@ -241,6 +242,15 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
     return group;
   }
 
+  /** An invite link posted somewhere public can't fill a group with strangers. */
+  async function isFull(groupId: string) {
+    const [row] = await db
+      .select({ n: count() })
+      .from(members)
+      .where(and(eq(members.groupId, groupId), ne(members.inviteStatus, 'left')));
+    return (row?.n ?? 0) >= MAX_GROUP_MEMBERS;
+  }
+
   app.get('/join/:code', async (c) => {
     const group = await groupByCode(c.req.param('code'));
     if (!group)
@@ -316,6 +326,8 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
   app.post('/join/:code/upload-url', async (c) => {
     const group = await groupByCode(c.req.param('code'));
     if (!group) return c.json({ error: 'not_found' }, 404);
+    // Checked before the upload too, so nobody uploads a selfie only to be turned away.
+    if (await isFull(group.id)) return c.json({ error: 'group_full' }, 409);
     const key = newSelfieKey(joinSelfiePrefix(group.id));
     return c.json({ key, uploadUrl: await storage.uploadUrl(key) });
   });
@@ -328,6 +340,7 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
     const { displayName, key, consentTextVersion, aiConsentVersion } = parsed.data;
     if (!key.startsWith(joinSelfiePrefix(group.id))) return c.json({ error: 'invalid_key' }, 400);
     if (!(await storage.exists(key))) return c.json({ error: 'not_uploaded' }, 400);
+    if (await isFull(group.id)) return c.json({ error: 'group_full' }, 409);
     const manageToken = newManageToken();
     await db.transaction(async (tx) => {
       const [member] = await tx
@@ -482,7 +495,9 @@ $('f').addEventListener('submit', async (e) => {
   $('err').textContent = '';
   try {
     const jpeg = await toJpeg($('photo').files[0]);
-    const target = await (await fetch('/join/' + code + '/upload-url', { method: 'POST' })).json();
+    const targetRes = await fetch('/join/' + code + '/upload-url', { method: 'POST' });
+    const target = await targetRes.json();
+    if (!targetRes.ok) throw new Error(target.error);
     const put = await fetch(target.uploadUrl, { method: 'PUT', headers: { 'content-type': 'image/jpeg' }, body: jpeg });
     if (!put.ok) throw new Error('upload');
     const res = await fetch('/join/' + code, {
@@ -496,14 +511,17 @@ $('f').addEventListener('submit', async (e) => {
         adult: true,
       }),
     });
-    if (!res.ok) throw new Error('join');
+    if (!res.ok) throw new Error((await res.json()).error);
     const { manageUrl } = await res.json();
     $('manage').href = manageUrl;
     $('manage').textContent = manageUrl;
     $('f').hidden = true;
     $('done').hidden = false;
-  } catch {
-    $('err').textContent = "Something went wrong. Please try again.";
+  } catch (e) {
+    $('err').textContent = {
+      group_full: 'This group is full, so the invite link no longer works.',
+      rate_limited: 'Too many tries. Please wait a few minutes and try again.',
+    }[e.message] || 'Something went wrong. Please try again.';
     $('go').disabled = false;
   }
 });`;

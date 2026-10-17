@@ -13,6 +13,10 @@ function required(name: string): string {
 
 if (process.env.SENTRY_DSN) Sentry.init({ dsn: process.env.SENTRY_DSN });
 
+/** An optional override of the daily free-video cap; anything but a whole number is ignored. */
+const freeVideosPerDay = /^\d+$/.test(process.env.FREE_VIDEOS_PER_DAY ?? '')
+  ? Number(process.env.FREE_VIDEOS_PER_DAY)
+  : null;
 const port = Number(process.env.PORT ?? 3000);
 const db = createDb(required('DATABASE_URL'));
 await runMigrations(db);
@@ -27,6 +31,7 @@ const app = createApp(db, {
   }),
   publicUrl: required('PUBLIC_URL').replace(/\/$/, ''),
   revenueCatWebhookAuth: required('REVENUECAT_WEBHOOK_AUTH'),
+  ...(freeVideosPerDay === null ? {} : { freeVideosPerDay }),
 });
 serve({ fetch: app.fetch, port, hostname: '0.0.0.0' }, (info) => {
   console.log(`api listening on :${info.port}`);

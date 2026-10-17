@@ -1,5 +1,6 @@
 import { createDb } from '@insidejoke/db';
 import * as Sentry from '@sentry/node';
+import { BUDGET_CHECK_MS, dailySpendLimit, spentInLastDay } from './budget.ts';
 import { claimNextJob, REAP_MS, requeueStaleJobs, STALE_AFTER_SECONDS } from './claim.ts';
 import { expoNotify } from './notify.ts';
 import { claudeModerator } from './providers/moderator.ts';
@@ -42,6 +43,30 @@ process.on('SIGTERM', () => {
 
 let lastReap = 0;
 
+const spendLimit = dailySpendLimit();
+let lastBudgetCheck = 0;
+let overBudget = false;
+/**
+ * A circuit breaker on provider spend: past the day's limit the worker only films videos people
+ * bought, and leaves scripts and free videos queued, so a flood of sign-ups or a bug can't run up
+ * fal and Anthropic. The rest resumes as the 24-hour window moves on.
+ */
+async function checkBudget() {
+  lastBudgetCheck = Date.now();
+  const spent = await spentInLastDay(db);
+  const over = spent >= spendLimit;
+  if (over && !overBudget) {
+    const message = `worker paused: $${spent.toFixed(2)} spent in 24h, limit $${spendLimit}`;
+    console.error(message);
+    Sentry.captureMessage(message, 'fatal');
+  } else if (!over && overBudget) {
+    console.warn(`worker resumed: $${spent.toFixed(2)} spent in 24h`);
+  }
+  overBudget = over;
+}
+
+console.log(`worker daily spend limit $${spendLimit}`);
+
 console.log('worker polling for jobs');
 while (!stopping) {
   if (Date.now() - lastReap > REAP_MS) {
@@ -50,7 +75,8 @@ while (!stopping) {
     if (requeued.length > 0)
       console.warn(`requeued jobs a stopped worker left: ${requeued.join(', ')}`);
   }
-  const job = await claimNextJob(db);
+  if (Date.now() - lastBudgetCheck > BUDGET_CHECK_MS) await checkBudget();
+  const job = await claimNextJob(db, { paidOnly: overBudget });
   if (job) {
     await runJob(db, job, steps, notify);
   } else {

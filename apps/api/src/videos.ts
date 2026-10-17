@@ -2,12 +2,14 @@ import {
   AI_CONSENT_VERSION,
   createVideoSchema,
   MAX_SCRIPT_ATTEMPTS,
+  MAX_SCRIPTS_PER_DAY,
   updateScriptSchema,
   type ApproveResult,
+  type GenerationStep,
   type Script,
   type VideoDetail,
 } from '@insidejoke/shared';
-import { and, count, eq, inArray, isNull, ne } from 'drizzle-orm';
+import { and, count, eq, gt, inArray, isNull, ne, sql, type SQL } from 'drizzle-orm';
 import { Hono } from 'hono';
 import type { AuthVariables } from './auth.ts';
 import {
@@ -36,7 +38,9 @@ function sameShape(a: Script, b: Script): boolean {
   return castIds(a) === castIds(b) && timing(a) === timing(b);
 }
 
-export function videoRoutes(db: Db, storage: Storage) {
+const oneDayAgo = sql`now() - interval '1 day'`;
+
+export function videoRoutes(db: Db, storage: Storage, freeVideosPerDay: number) {
   const app = new Hono<{ Variables: AuthVariables }>();
 
   async function ownVideo(clerkUserId: string, id: string) {
@@ -55,6 +59,21 @@ export function videoRoutes(db: Db, storage: Storage) {
       .where(and(eq(generationJobs.videoId, videoId), eq(generationJobs.step, 'script')));
     return row?.n ?? 0;
   }
+
+  /** Steps queued in the last day that match `where`, for the daily caps. */
+  async function jobsToday(tx: Pick<Db, 'select'>, step: GenerationStep, where: SQL) {
+    const [row] = await tx
+      .select({ n: count() })
+      .from(generationJobs)
+      .innerJoin(videos, eq(videos.id, generationJobs.videoId))
+      .where(and(eq(generationJobs.step, step), gt(generationJobs.createdAt, oneDayAgo), where));
+    return row?.n ?? 0;
+  }
+  /** Scripts written for this user in the last day; each one is a paid Claude call. */
+  const scriptsToday = (userId: string) => jobsToday(db, 'script', eq(videos.creatorId, userId));
+  /** Free videos started by anyone in the last day. */
+  const freeVideosToday = (tx: Pick<Db, 'select'>) =>
+    jobsToday(tx, 'video', eq(videos.watermarked, true));
 
   async function detail(video: Video): Promise<VideoDetail> {
     const cast = await db
@@ -93,6 +112,9 @@ export function videoRoutes(db: Db, storage: Storage) {
     // Guideline 5.1.2(i): nothing goes to an AI provider before the user agreed to it.
     if (user.aiConsentVersion !== AI_CONSENT_VERSION) {
       return c.json({ error: 'ai_consent_required' }, 403);
+    }
+    if ((await scriptsToday(user.id)) >= MAX_SCRIPTS_PER_DAY) {
+      return c.json({ error: 'daily_limit' }, 429);
     }
 
     const [group] = await db
@@ -141,11 +163,21 @@ export function videoRoutes(db: Db, storage: Storage) {
     if (!video) return c.json({ error: 'not_found' }, 404);
     if (video.status !== 'script_ready' || !video.script)
       return c.json({ error: 'not_editable' }, 409);
-    if (!sameShape(video.script, parsed.data.script))
-      return c.json({ error: 'shape_changed' }, 400);
+    const edited = parsed.data.script;
+    if (!sameShape(video.script, edited)) return c.json({ error: 'shape_changed' }, 400);
+    // Only the spoken lines and subtitles change. The scene, cast directions and actions stay as
+    // the writer wrote them, so an edit can't slip new instructions into the video prompt.
+    const script: Script = {
+      ...video.script,
+      beats: video.script.beats.map((b, i) => ({
+        ...b,
+        line: edited.beats[i]!.line,
+        subtitle: edited.beats[i]!.subtitle,
+      })),
+    };
     const [updated] = await db
       .update(videos)
-      .set({ script: parsed.data.script })
+      .set({ script })
       .where(eq(videos.id, video.id))
       .returning();
     return c.json(await detail(updated!));
@@ -161,6 +193,9 @@ export function videoRoutes(db: Db, storage: Storage) {
     if ((await scriptAttempts(video.id)) >= MAX_SCRIPT_ATTEMPTS) {
       return c.json({ error: 'too_many_attempts' }, 429);
     }
+    if ((await scriptsToday(video.creatorId)) >= MAX_SCRIPTS_PER_DAY) {
+      return c.json({ error: 'daily_limit' }, 429);
+    }
     await db.transaction(async (tx) => {
       await tx.update(videos).set({ status: 'draft', script: null }).where(eq(videos.id, video.id));
       await tx.insert(generationJobs).values({ videoId: video.id, step: 'script' });
@@ -171,6 +206,7 @@ export function videoRoutes(db: Db, storage: Storage) {
   /**
    * Approves the script and starts the video. It's paid with the user's one free (watermarked)
    * video, or a credit; without either the app has to sell one first. The chat text is deleted here.
+   * Once the day's free videos for everyone are gone, the user's free one waits for another day.
    */
   app.post('/:id/approve', async (c) => {
     const { user, video } = await ownVideo(c.get('clerkUserId'), c.req.param('id'));
@@ -181,6 +217,7 @@ export function videoRoutes(db: Db, storage: Storage) {
       const [payer] = await tx.select().from(users).where(eq(users.id, user.id)).for('update');
       let paidWith: 'free' | 'credit';
       if (!payer!.freeVideoUsed) {
+        if ((await freeVideosToday(tx)) >= freeVideosPerDay) return { error: 'free_limit' };
         paidWith = 'free';
         await tx.update(users).set({ freeVideoUsed: true }).where(eq(users.id, user.id));
       } else if (payer!.videoCredits > 0) {
@@ -200,7 +237,8 @@ export function videoRoutes(db: Db, storage: Storage) {
       return { status: 'paid', paidWith };
     });
     if (!result) return c.json({ error: 'not_approvable' }, 409);
-    return c.json(result, 'error' in result ? 402 : 200);
+    if (!('error' in result)) return c.json(result, 200);
+    return c.json(result, result.error === 'free_limit' ? 429 : 402);
   });
 
   /** Deletes the video for good, including the file. */

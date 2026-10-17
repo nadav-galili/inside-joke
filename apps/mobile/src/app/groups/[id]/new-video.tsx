@@ -23,7 +23,7 @@ import {
   Title,
 } from '../../../components/ui';
 import { track } from '../../../lib/analytics';
-import { ApiError, useApi, useResource } from '../../../lib/api';
+import { ApiError, DAILY_LIMIT_MESSAGE, useApi, useResource } from '../../../lib/api';
 import { STYLE_LABELS } from '../../../lib/styles';
 import { colors as c, type } from '../../../lib/theme';
 
@@ -62,10 +62,13 @@ export default function NewVideo() {
       track('video_started', { style: style!, cast: cast.length });
       router.replace(`/videos/${video.id}`);
     } catch (e) {
+      const code = e instanceof ApiError ? e.code : undefined;
       setError(
-        e instanceof ApiError && e.code === 'cast_without_consent'
+        code === 'cast_without_consent'
           ? 'Someone in the cast removed their selfie. Pick the cast again.'
-          : "We couldn't start the video. Please try again.",
+          : code === 'daily_limit'
+            ? DAILY_LIMIT_MESSAGE
+            : "We couldn't start the video. Please try again.",
       );
       setBusy(false);
     }

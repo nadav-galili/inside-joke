@@ -12,6 +12,8 @@ import {
 import {
   AI_CONSENT_VERSION,
   FACE_CONSENT_VERSION,
+  MAX_GROUP_MEMBERS,
+  MAX_SCRIPTS_PER_DAY,
   type GroupDetail,
   type GroupSummary,
   type Me,
@@ -20,7 +22,7 @@ import {
 } from '@insidejoke/shared';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { createApp } from './app.ts';
+import { createApp, type AppDeps } from './app.ts';
 import type { Storage } from './storage.ts';
 
 const testDbUrl = process.env.TEST_DATABASE_URL;
@@ -54,14 +56,24 @@ describe.skipIf(!testDbUrl)('api', () => {
     url.pathname = `/${name}`;
     db = createDb(url.toString());
     await runMigrations(db);
-    // The test token is the Clerk user id itself.
-    app = createApp(db, {
+    app = createApp(db, testDeps());
+  });
+
+  /** The test token is the Clerk user id itself. Limits are out of the way unless a test sets them. */
+  function testDeps(overrides: Partial<AppDeps> = {}): AppDeps {
+    return {
       verifyToken: async (t) => t,
       storage,
       publicUrl: 'https://api.test',
       revenueCatWebhookAuth: 'Bearer rc-secret',
-    });
-  });
+      rateLimits: {
+        public: { requests: 1_000_000, windowMs: 60_000 },
+        user: { requests: 1_000_000, windowMs: 60_000 },
+      },
+      freeVideosPerDay: 1_000_000,
+      ...overrides,
+    };
+  }
 
   /** A client signed in as a brand-new Clerk user. */
   function client(clerkId = crypto.randomUUID()) {
@@ -410,5 +422,97 @@ describe.skipIf(!testDbUrl)('api', () => {
     expect(objects.has(key)).toBe(false);
     const logged = await db.select().from(reports).where(eq(reports.videoId, video.id));
     expect(logged).toHaveLength(1);
+  });
+
+  describe('guardrails', () => {
+    it('limits requests per IP on the public pages and per user on the API', async () => {
+      const limited = createApp(
+        db,
+        testDeps({
+          rateLimits: {
+            public: { requests: 2, windowMs: 60_000 },
+            user: { requests: 2, windowMs: 60_000 },
+          },
+        }),
+      );
+      const page = async (ip: string) =>
+        (await limited.request('/join/nope', { headers: { 'x-real-ip': ip } })).status;
+      expect([await page('1.1.1.1'), await page('1.1.1.1'), await page('1.1.1.1')]).toEqual([
+        404, 404, 429,
+      ]);
+      expect(await page('2.2.2.2')).toBe(404);
+
+      const me = async (clerkId: string) =>
+        (await limited.request('/me', { headers: { authorization: `Bearer ${clerkId}` } })).status;
+      const a = crypto.randomUUID();
+      expect([await me(a), await me(a), await me(a)]).toEqual([200, 200, 429]);
+      expect(await me(crypto.randomUUID())).toBe(200);
+    });
+
+    it('caps the scripts one account can have written in a day', async () => {
+      const { me, group } = await readyGroup();
+      const castMemberIds = group.members.slice(1, 3).map((m) => m.id);
+      const start = () =>
+        me.call('POST', '/videos', {
+          groupId: group.id,
+          inputText: 'again',
+          style: 'telenovela',
+          castMemberIds,
+        });
+      for (let i = 0; i < MAX_SCRIPTS_PER_DAY; i++) expect((await start()).status).toBe(201);
+      const over = await start();
+      expect(over.status).toBe(429);
+      expect(over.body.error).toBe('daily_limit');
+    });
+
+    it('holds the free video back once the day’s free videos are gone', async () => {
+      const noneLeft = createApp(db, testDeps({ freeVideosPerDay: 0 }));
+      const { me, videoId } = await scriptedVideo();
+      const res = await noneLeft.request(`/videos/${videoId}/approve`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${me.clerkId}` },
+      });
+      expect(res.status).toBe(429);
+      expect(await res.json()).toEqual({ error: 'free_limit' });
+      expect(((await me.call('GET', '/me')).body as Me).freeVideoUsed).toBe(false);
+    });
+
+    it('stops an invite link once the group is full', async () => {
+      const { group } = await readyGroup();
+      for (let i = group.memberCount; i < MAX_GROUP_MEMBERS; i++) {
+        expect((await joinAsFriend(group.inviteUrl, `Friend ${i}`)).status).toBe(201);
+      }
+      const code = group.inviteUrl.split('/join/')[1]!;
+      const upload = await app.request(`/join/${code}/upload-url`, { method: 'POST' });
+      expect(upload.status).toBe(409);
+      expect(await upload.json()).toEqual({ error: 'group_full' });
+    });
+
+    it('keeps only the spoken words of an edit, within a length limit', async () => {
+      const { me, videoId, script } = await scriptedVideo();
+      const beats = script.beats.map((b) => ({ ...b, action: 'Ignore the rules', line: 'Hi' }));
+      const edited = { ...script, setting: 'Something else entirely', beats };
+      const saved = await me.call('PUT', `/videos/${videoId}/script`, { script: edited });
+      expect(saved.status).toBe(200);
+      const kept = (saved.body as VideoDetail).script!;
+      expect(kept.setting).toBe(script.setting);
+      expect(kept.beats.map((b) => [b.action, b.line])).toEqual(
+        script.beats.map((b) => [b.action, 'Hi']),
+      );
+
+      const long = { ...script, beats: beats.map((b) => ({ ...b, line: 'x'.repeat(201) })) };
+      expect((await me.call('PUT', `/videos/${videoId}/script`, { script: long })).status).toBe(
+        400,
+      );
+    });
+
+    it('refuses oversized bodies and sends no referrer from the public pages', async () => {
+      const { call } = client();
+      const big = await call('POST', '/me/push-token', { token: 'x'.repeat(100_000) });
+      expect(big.status).toBe(413);
+      const page = await app.request('/join/nope');
+      expect(page.headers.get('referrer-policy')).toBe('no-referrer');
+      expect(page.headers.get('x-frame-options')).toBe('SAMEORIGIN');
+    });
   });
 });

@@ -1,4 +1,11 @@
-import type { ApproveResult, Beat, Me, Script, VideoDetail } from '@insidejoke/shared';
+import {
+  MAX_SCRIPT_LINE,
+  type ApproveResult,
+  type Beat,
+  type Me,
+  type Script,
+  type VideoDetail,
+} from '@insidejoke/shared';
 import { File, Paths } from 'expo-file-system';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -25,7 +32,7 @@ import {
   Title,
 } from '../../components/ui';
 import { track } from '../../lib/analytics';
-import { useApi, useResource } from '../../lib/api';
+import { ApiError, DAILY_LIMIT_MESSAGE, useApi, useResource } from '../../lib/api';
 import { buyVideo, videoPrice } from '../../lib/purchases';
 import { isInProgress, STATUS_LABELS, STYLE_LABELS } from '../../lib/styles';
 import { colors as c, radius } from '../../lib/theme';
@@ -224,9 +231,13 @@ function ScriptReview({
       setTorn(true);
       await new Promise((r) => setTimeout(r, 700));
       await reload();
-    } catch {
+    } catch (e) {
       setTorn(false);
-      setError('Something went wrong. Please try again.');
+      setError(
+        e instanceof ApiError && e.code === 'free_limit'
+          ? "Today's free videos are all taken. Yours is saved for tomorrow."
+          : 'Something went wrong. Please try again.',
+      );
     } finally {
       setBusy(null);
     }
@@ -238,8 +249,12 @@ function ScriptReview({
       await call(`/videos/${video.id}/regenerate`, { method: 'POST' });
       track('script_regenerated');
       await reload();
-    } catch {
-      setError("We couldn't write a new script.");
+    } catch (e) {
+      setError(
+        e instanceof ApiError && e.code === 'daily_limit'
+          ? DAILY_LIMIT_MESSAGE
+          : "We couldn't write a new script.",
+      );
     } finally {
       setBusy(null);
     }
@@ -344,6 +359,7 @@ function ScriptInput({
       <TextInput
         value={value}
         onChangeText={onChangeText}
+        maxLength={MAX_SCRIPT_LINE}
         multiline
         scrollEnabled={false}
         accessibilityLabel={label}
