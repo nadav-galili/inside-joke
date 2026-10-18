@@ -1,6 +1,6 @@
 import { test } from '@e2e-dev/mobile';
 import { expect } from 'e2e';
-import { consent, control, newEmail, signUp, tap } from './support.ts';
+import { consent, control, newEmail, signUp, tap, userPath } from './support.ts';
 
 /**
  * A new user's first video, up to the ticket: sign up, consent, selfie, group, friends, the moment,
@@ -19,7 +19,7 @@ test(
 
     // The selfie comes from the photo picker, which the agent test covers. Seed it, then relaunch.
     await expect(screen.getByText('Star in your videos')).toBeVisible({ timeout: 20_000 });
-    await control('POST', `/users/${encodeURIComponent(email)}/selfie`);
+    await control('POST', `${userPath(email)}/selfie`);
     await app.restart();
 
     await tap(screen.getByTestId('start-group'));
@@ -29,7 +29,7 @@ test(
     await expect(screen.getByText('Invite friends to cast')).toBeVisible({ timeout: 20_000 });
 
     // Two friends join from the web invite page, then the group screen is opened afresh.
-    await control('POST', `/users/${encodeURIComponent(email)}/friends`, { names: ['Ziv', 'Noa'] });
+    await control('POST', `${userPath(email)}/friends`, { names: ['Ziv', 'Noa'] });
     await app.restart();
     await tap(screen.getByRole('button', /Pizza Night/));
     await tap(screen.getByTestId('make-video'));
@@ -47,13 +47,13 @@ test(
 
     // No worker runs, so the script waits until the test writes it in the worker's place.
     await expect(screen.getByText('Writing the script').first()).toBeVisible({ timeout: 20_000 });
-    await control('POST', `/users/${encodeURIComponent(email)}/script`);
+    await control('POST', `${userPath(email)}/script`);
     await expect(screen.getByText('The Group Chat').first()).toBeVisible({ timeout: 20_000 });
     await expect(screen.getByTestId('roll-camera')).toBeVisible();
-    await expect(screen.getByRole('button', 'Roll camera, Free')).toBeVisible();
+    await expect(screen.getByRole('button', 'Roll camera, Free')).toBeVisible({ timeout: 20_000 });
 
     // Only the script step was ever queued, and nothing picked it up.
-    const jobs = await control('GET', `/users/${encodeURIComponent(email)}/jobs`);
+    const jobs = await control('GET', `${userPath(email)}/jobs`);
     expect(jobs).toEqual([{ step: 'script', status: 'queued' }]);
   },
 );

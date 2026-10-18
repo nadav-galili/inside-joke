@@ -49,7 +49,8 @@ await adminDb.$client.end();
 const db = createDb(databaseUrl.toString());
 await runMigrations(db);
 
-const publicUrl = `http://localhost:${API_PORT}`;
+// 127.0.0.1, as the server binds, so nothing resolves localhost to IPv6 and misses it.
+const publicUrl = `http://127.0.0.1:${API_PORT}`;
 const clerk = createClerkClient({ secretKey });
 const app = createE2eApi(db, {
   publicUrl,

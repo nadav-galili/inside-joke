@@ -37,6 +37,9 @@ function memoryStorage(publicUrl: string) {
  * The real API on a local database and in-memory storage, plus `/__e2e/*` routes the tests use to
  * do what a person or the worker would: seed a selfie, have friends join, write a script. The
  * worker never runs, so no script or video is ever generated and nothing is paid for.
+ *
+ * The control routes upload faces for people who never took them, so they live here only and must
+ * never be mounted in `apps/api`.
  */
 export function createE2eApi(
   db: Db,
