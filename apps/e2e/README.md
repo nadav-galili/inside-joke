@@ -43,3 +43,12 @@ logs and recordings land in `apps/e2e/.e2e/`.
 
 `tests/selfie.e2e.ts` uses an agent to work through the system photo picker. It runs only when
 `ANTHROPIC_API_KEY` is set in `.env` and is skipped otherwise; the other tests never call a model.
+
+## In CI
+
+`.github/workflows/e2e-ios.yml` runs the suite on a hosted Mac after every merge to `main`, and on
+pull requests that change `apps/e2e`. It builds a Debug simulator app (cached until the app's
+config or dependencies change), starts Postgres, and runs the same stack, so it never generates a
+video either. It needs two repository secrets, the same Clerk **development** keys as `.env`:
+`E2E_CLERK_PUBLISHABLE_KEY` and `E2E_CLERK_SECRET_KEY`. Reports are uploaded as the `e2e-ios`
+artifact.

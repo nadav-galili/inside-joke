@@ -1,0 +1,95 @@
+name: e2e iOS
+# The simulator tests (apps/e2e) after every merge to main, and on pull requests that change them.
+# They run against a local API and database with no worker, so they never generate a video.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - apps/e2e/**
+      - .github/workflows/e2e-ios.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    runs-on: macos-26
+    timeout-minutes: 75
+    env:
+      E2E_CLERK_PUBLISHABLE_KEY: ${{ secrets.E2E_CLERK_PUBLISHABLE_KEY }}
+      E2E_CLERK_SECRET_KEY: ${{ secrets.E2E_CLERK_SECRET_KEY }}
+      SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Check the Clerk development keys are set
+        run: |
+          if [ -z "$E2E_CLERK_PUBLISHABLE_KEY" ] || [ -z "$E2E_CLERK_SECRET_KEY" ]; then
+            echo "::error::Add the E2E_CLERK_PUBLISHABLE_KEY and E2E_CLERK_SECRET_KEY repository secrets (Clerk development instance)."
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --dir apps/e2e install --frozen-lockfile --ignore-workspace
+
+      # Postgres on 5499, where the stack looks by default. Hosted Macs have no Docker.
+      - name: Start Postgres
+        run: |
+          brew install postgresql@17
+          PG="$(brew --prefix postgresql@17)/bin"
+          "$PG/initdb" -D "$RUNNER_TEMP/pg" -U postgres --auth=trust
+          "$PG/pg_ctl" -D "$RUNNER_TEMP/pg" -o "-p 5499" -l "$RUNNER_TEMP/pg.log" start
+
+      # A Debug build loads its JavaScript from the stack's Metro, so only native changes need a new
+      # build: the key covers the app config and the dependencies.
+      - name: Restore the simulator build
+        id: app-cache
+        uses: actions/cache@v4
+        with:
+          path: apps/mobile/build/Build/Products/Debug-iphonesimulator
+          key: ios-sim-debug-${{ hashFiles('apps/mobile/app.json', 'apps/mobile/package.json', 'pnpm-lock.yaml') }}
+      - name: Build the app for the simulator
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        working-directory: apps/mobile
+        run: |
+          pnpm exec expo prebuild --platform ios --no-install
+          (cd ios && pod install)
+          WORKSPACE=$(ls -d ios/*.xcworkspace | head -1)
+          xcodebuild -workspace "$WORKSPACE" -scheme "$(basename "$WORKSPACE" .xcworkspace)" \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build | tail -n 50
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.agent-device
+          key: agent-device-${{ runner.os }}-${{ hashFiles('apps/e2e/pnpm-lock.yaml') }}
+
+      - name: Boot a simulator and install the app
+        run: |
+          RUNTIME=$(xcrun simctl list runtimes -j | jq -r '[.runtimes[] | select(.platform == "iOS" and .isAvailable)] | last | .identifier')
+          echo "Runtime: $RUNTIME"
+          UDID=$(xcrun simctl create e2e "iPhone 17 Pro" "$RUNTIME")
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" apps/mobile/build/Build/Products/Debug-iphonesimulator/*.app
+
+      - run: pnpm exec e2e run --target ios --reporter list,junit
+        working-directory: apps/e2e
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: e2e-ios
+          path: apps/e2e/.e2e
+          if-no-files-found: warn
