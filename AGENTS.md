@@ -6,6 +6,16 @@ in-app purchase via RevenueCat.
 
 Build plan: https://claude.ai/code/artifact/7840814d-7dfa-4910-87e4-fc031bb5c754
 
+
+## Expo
+
+- Expo ships breaking changes every SDK release, so don't trust memory. Before touching an Expo, EAS, or React Native API, check the `expo` major version in `package.json` and read `https://docs.expo.dev/versions/v<major>.0.0/`. For anything else, start from https://docs.expo.dev/llms.txt and follow its links.
+
+## Rules
+
+- Secret keys (Clerk secret key, TypeSafe key, Sanity organization token, Sanity write token) never reach the app bundle. Use them only in API routes and local scripts such as seeding. Never put them behind `EXPO_PUBLIC_`, which is bundled into the app. Never commit `.env`. Keep variable names, without values, in `.env.example`.
+
+
 ## Layout
 
 The same stack as Mibo (nadav-galili/chores): a pnpm + Turborepo monorepo on Node 22.
