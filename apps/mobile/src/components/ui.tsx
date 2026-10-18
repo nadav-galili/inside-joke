@@ -166,6 +166,7 @@ export function Button({
   disabled,
   busy,
   busyTitle,
+  testID,
 }: {
   title: string;
   onPress: () => void;
@@ -174,6 +175,8 @@ export function Button({
   busy?: boolean;
   /** Says what's happening next to the spinner, for waits longer than a moment. */
   busyTitle?: string;
+  /** For the simulator tests in apps/e2e. */
+  testID?: string;
 }) {
   const primary = kind === 'primary';
   const fg = primary ? c.onAccent : kind === 'danger' ? c.danger : c.text;
@@ -181,6 +184,7 @@ export function Button({
     <Pressy
       accessibilityRole="button"
       accessibilityState={{ disabled: !!disabled, busy: !!busy }}
+      testID={testID}
       onPress={onPress}
       disabled={disabled || busy}
       haptic={disabled ? 'none' : 'tap'}
@@ -272,16 +276,19 @@ export function Checkbox({
   onToggle,
   children,
   style,
+  testID,
 }: {
   checked: boolean;
   onToggle: () => void;
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }) {
   return (
     <Pressy
       accessibilityRole="checkbox"
       accessibilityState={{ checked }}
+      testID={testID}
       haptic="tick"
       onPress={onToggle}
       style={[styles.checkRow, style]}

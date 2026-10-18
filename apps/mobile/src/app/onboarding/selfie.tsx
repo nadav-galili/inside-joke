@@ -83,6 +83,7 @@ export default function Selfie() {
                 onPress={save}
                 busy={busy}
                 disabled={!agreed}
+                testID="selfie-save"
               />
               <View style={styles.redo}>
                 <Button title="Retake" kind="quiet" onPress={shoot} />
@@ -92,7 +93,7 @@ export default function Selfie() {
           ) : (
             <>
               <Button title="Take selfie" onPress={shoot} />
-              <Button title="Choose from photos" kind="quiet" onPress={pick} />
+              <Button title="Choose from photos" kind="quiet" onPress={pick} testID="selfie-pick" />
             </>
           )}
         </>
@@ -139,6 +140,7 @@ export default function Selfie() {
           <Checkbox
             checked={agreed}
             onToggle={() => setAgreed(!agreed)}
+            testID="selfie-confirm"
             style={[styles.consent, agreed && { borderColor: c.accent }]}
           >
             <Body small>{FACE_CONSENT_TEXT}</Body>

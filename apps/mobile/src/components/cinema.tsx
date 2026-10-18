@@ -148,6 +148,7 @@ export function Ticket({
   disabled,
   torn,
   notchColor = c.bg,
+  testID,
 }: {
   title: string;
   price: string;
@@ -157,6 +158,7 @@ export function Ticket({
   disabled?: boolean;
   torn?: boolean;
   notchColor?: string;
+  testID?: string;
 }) {
   const tear = useSharedValue(torn ? 1 : 0);
   const wasTorn = useRef(torn);
@@ -178,6 +180,7 @@ export function Ticket({
       accessibilityRole="button"
       accessibilityLabel={`${title}, ${price}`}
       accessibilityState={{ disabled: !!disabled, busy: !!busy }}
+      testID={testID}
       onPress={onPress}
       disabled={disabled || busy}
       style={[styles.ticketRow, disabled && !torn && { opacity: 0.45 }]}

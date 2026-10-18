@@ -370,6 +370,7 @@ function ScriptReview({
             busy={busy === 'approve' && !torn}
             disabled={busy !== null}
             torn={torn}
+            testID="roll-camera"
           />
           {video.canRegenerate && (
             <Button

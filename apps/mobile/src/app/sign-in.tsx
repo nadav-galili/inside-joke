@@ -155,6 +155,7 @@ export default function SignIn() {
                 autoComplete="email"
                 keyboardType="email-address"
                 placeholder="you@example.com"
+                testID="email"
               />
               <Button
                 title="Email me a code"
@@ -162,6 +163,7 @@ export default function SignIn() {
                 onPress={sendCode}
                 busy={busy}
                 disabled={!email.includes('@')}
+                testID="send-code"
               />
             </>
           ) : (
@@ -174,12 +176,14 @@ export default function SignIn() {
                 autoComplete="one-time-code"
                 autoFocus
                 style={styles.code}
+                testID="code"
               />
               <Button
                 title="Continue"
                 onPress={verify}
                 busy={busy}
                 disabled={code.trim().length < 6}
+                testID="verify"
               />
               <Button title="Use another email" kind="quiet" onPress={() => setStep('email')} />
             </>

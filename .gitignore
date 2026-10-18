@@ -24,3 +24,6 @@ apps/mobile/ios/
 .screenshots-captures/
 .preview-captures/
 .design-captures/
+
+# e2e run output: reports, logs, recordings and the replay cache.
+.e2e/

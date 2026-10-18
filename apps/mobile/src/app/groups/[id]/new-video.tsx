@@ -95,6 +95,7 @@ export default function NewVideo() {
             busy={busy}
             busyTitle="Calling the writers…"
             disabled={missing !== null}
+            testID="write-script"
           />
         </>
       }
@@ -113,6 +114,7 @@ export default function NewVideo() {
           multiline
           maxLength={MAX_INPUT_CHARS}
           placeholder="Paste the messages from your group chat, or describe the inside joke."
+          testID="moment"
           hint={
             nearLimit
               ? `${text.length} of ${MAX_INPUT_CHARS} characters. We delete this text once you approve the script.`
@@ -133,6 +135,7 @@ export default function NewVideo() {
                 accessibilityState={{ selected: style === s }}
                 haptic="tick"
                 onPress={() => setStyle(s)}
+                testID={`genre-${s}`}
                 style={styles.genre}
               >
                 <GenrePoster genre={s} height={112} selected={style === s} />
@@ -158,6 +161,7 @@ export default function NewVideo() {
                   accessibilityState={{ checked: on }}
                   haptic="tick"
                   onPress={() => toggle(m.id)}
+                  testID={`cast-${m.displayName}`}
                   style={styles.person}
                 >
                   <Avatar name={m.displayName} size={58} ring={on} dim={!on} />
