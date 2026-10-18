@@ -191,10 +191,13 @@ export default function SignIn() {
   );
 }
 
+// Explicit height: an Image ignores aspectRatio inside the poster and grows to the JPEG's own size.
+const POSTER_WIDTH = 116;
+
 const styles = StyleSheet.create({
   posters: { flexDirection: 'row', justifyContent: 'center', marginTop: 24, marginBottom: 8 },
   poster: {
-    width: 116,
+    width: POSTER_WIDTH,
     marginHorizontal: -8,
     borderRadius: radius.lg,
     overflow: 'hidden',
@@ -202,7 +205,7 @@ const styles = StyleSheet.create({
     borderColor: c.border,
     backgroundColor: c.card,
   },
-  still: { width: '100%', aspectRatio: 9 / 16 },
+  still: { width: POSTER_WIDTH, height: (POSTER_WIDTH * 16) / 9 },
   stillTag: {
     position: 'absolute',
     left: 8,
