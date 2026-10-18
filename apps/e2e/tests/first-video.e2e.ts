@@ -37,6 +37,7 @@ test(
     await tap(screen.getByTestId('start-group'));
     await fill(screen.getByTestId('group-name'), 'Pizza Night');
     await fill(screen.getByTestId('my-name'), 'Dani');
+    await device.dismissKeyboard();
     await tap(screen.getByTestId('create-group'));
     await expect(screen.getByText('Invite friends to cast')).toBeVisible({ timeout: 20_000 });
 

@@ -88,10 +88,13 @@ export async function signUp(screen: Screen, device: Device, email: string) {
   // On a phone the email field and the buttons under it sit below the fold.
   await screen.scrollUntilVisible(screen.getByTestId('email'), { direction: 'down' });
   await fill(screen.getByTestId('email'), email);
+  // The on-screen keyboard (CI has no hardware one) stops the form from scrolling.
+  await device.dismissKeyboard();
   await screen.scrollUntilVisible(screen.getByTestId('send-code'), { direction: 'down' });
   await tap(screen.getByTestId('send-code'));
   await expect(screen.getByTestId('code')).toBeVisible({ timeout: 20_000 });
   await fill(screen.getByTestId('code'), '424242');
+  await device.dismissKeyboard();
   await screen.scrollUntilVisible(screen.getByTestId('verify'), { direction: 'down' });
   await tap(screen.getByTestId('verify'));
   await expect
