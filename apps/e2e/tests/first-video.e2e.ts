@@ -7,6 +7,7 @@ import {
   newEmail,
   signUp,
   tap,
+  tapAway,
   userPath,
   waitPastPrompts,
 } from './support.ts';
@@ -37,7 +38,6 @@ test(
     await tap(screen.getByTestId('start-group'));
     await fill(screen.getByTestId('group-name'), 'Pizza Night');
     await fill(screen.getByTestId('my-name'), 'Dani');
-    await device.dismissKeyboard();
     await tap(screen.getByTestId('create-group'));
     await expect(screen.getByText('Invite friends to cast')).toBeVisible({ timeout: 20_000 });
 
@@ -50,7 +50,7 @@ test(
 
     await expect(screen.getByTestId('write-script')).toHaveText('Paste the moment first');
     await fill(screen.getByTestId('moment'), 'Ziv: who ate the last slice?\nNoa: not me\nDani: 👀');
-    await device.dismissKeyboard();
+    await tapAway(screen.getByText('What happened?'));
     await screen.scrollUntilVisible(screen.getByTestId('genre-telenovela'));
     await tap(screen.getByTestId('genre-telenovela'));
     await screen.scrollUntilVisible(screen.getByTestId('cast-Ziv'));

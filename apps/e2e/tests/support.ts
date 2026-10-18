@@ -45,6 +45,15 @@ export async function fill(locator: Locator, text: string) {
   }
 }
 
+/**
+ * Closes the on-screen keyboard (CI has no hardware one) by tapping a heading: the app's scroll
+ * views dismiss it on a tap that lands on nothing interactive. iOS's email and multi-line keyboards
+ * have no key to close them.
+ */
+export async function tapAway(heading: Locator) {
+  await heading.first().tap({ position: { x: 4, y: 4 } });
+}
+
 /** iOS asks once the app wants to notify, which it does as soon as a user is onboarded. */
 const NOTIFICATIONS_PROMPT = /Would Like to Send You Notifications/;
 
@@ -88,13 +97,13 @@ export async function signUp(screen: Screen, device: Device, email: string) {
   // On a phone the email field and the buttons under it sit below the fold.
   await screen.scrollUntilVisible(screen.getByTestId('email'), { direction: 'down' });
   await fill(screen.getByTestId('email'), email);
-  // The on-screen keyboard (CI has no hardware one) stops the form from scrolling.
-  await device.dismissKeyboard();
+  // The on-screen keyboard stops the form from scrolling to its button.
+  await tapAway(screen.getByText(/Take your seat/));
   await screen.scrollUntilVisible(screen.getByTestId('send-code'), { direction: 'down' });
   await tap(screen.getByTestId('send-code'));
   await expect(screen.getByTestId('code')).toBeVisible({ timeout: 20_000 });
   await fill(screen.getByTestId('code'), '424242');
-  await device.dismissKeyboard();
+  await tapAway(screen.getByText(/Take your seat/));
   await screen.scrollUntilVisible(screen.getByTestId('verify'), { direction: 'down' });
   await tap(screen.getByTestId('verify'));
   await expect
