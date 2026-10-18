@@ -1,15 +1,13 @@
 import { test } from '@e2e-dev/mobile';
 import { expect } from 'e2e';
-import { tap } from './support.ts';
+import { tap, waitPastPrompts } from './support.ts';
 
 // Before sign-in the app makes no API calls, so this checks the tour and the sign-in screen alone.
 test('the welcome tour leads to sign-in', async ({ app, device, screen }) => {
   // Signed out, whatever the last test left behind.
   await device.clearKeychain();
   await app.clearState();
-  await expect(screen.getByText('Your group chat, on the big screen')).toBeVisible({
-    timeout: 120_000,
-  });
+  await waitPastPrompts(screen, device, screen.getByText('Your group chat, on the big screen'));
   for (const title of [
     'It starts with a moment',
     'Everyone plays themselves',

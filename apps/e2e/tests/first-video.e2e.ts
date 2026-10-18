@@ -1,6 +1,15 @@
 import { test } from '@e2e-dev/mobile';
 import { expect } from 'e2e';
-import { consent, control, fill, newEmail, signUp, tap, userPath } from './support.ts';
+import {
+  consent,
+  control,
+  fill,
+  newEmail,
+  signUp,
+  tap,
+  userPath,
+  waitPastPrompts,
+} from './support.ts';
 
 /**
  * A new user's first video, up to the ticket: sign up, consent, selfie, group, friends, the moment,
@@ -14,7 +23,7 @@ test(
     await device.clearKeychain();
     await app.clearState();
     const email = newEmail();
-    await signUp(screen, email);
+    await signUp(screen, device, email);
     await consent(screen);
 
     // The selfie comes from the photo picker, which the agent test covers. Seed it, then relaunch.
@@ -22,8 +31,9 @@ test(
     await control('POST', `${userPath(email)}/selfie`);
     await app.restart();
 
-    // A relaunch reloads the app from Metro, which takes a while on a hosted Mac.
-    await expect(screen.getByTestId('start-group')).toBeVisible({ timeout: 120_000 });
+    // A relaunch reloads the app from Metro, which takes a while on a hosted Mac. Home is where an
+    // onboarded user is first asked for notifications.
+    await waitPastPrompts(screen, device, screen.getByTestId('start-group'));
     await tap(screen.getByTestId('start-group'));
     await fill(screen.getByTestId('group-name'), 'Pizza Night');
     await fill(screen.getByTestId('my-name'), 'Dani');
@@ -33,7 +43,7 @@ test(
     // Two friends join from the web invite page, then the group screen is opened afresh.
     await control('POST', `${userPath(email)}/friends`, { names: ['Ziv', 'Noa'] });
     await app.restart();
-    await expect(screen.getByRole('button', /Pizza Night/)).toBeVisible({ timeout: 120_000 });
+    await waitPastPrompts(screen, device, screen.getByRole('button', /Pizza Night/));
     await tap(screen.getByRole('button', /Pizza Night/));
     await tap(screen.getByTestId('make-video'));
 

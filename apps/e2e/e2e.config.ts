@@ -28,8 +28,8 @@ export default {
           '-EXDevMenuShowFloatingActionButton',
           'NO',
         ],
-        // simctl on iOS 26 can't set the notifications permission; the app asks for it only once a
-        // video is on the way, which the tests never reach.
+        // simctl on iOS 26 can't set the notifications permission; the tests decline the prompt
+        // the app shows once a user is onboarded (tests/support.ts `waitPastPrompts`).
         permissions: { photos: 'grant' },
         command: {
           executable: 'pnpm',
