@@ -22,6 +22,8 @@ test(
     await control('POST', `${userPath(email)}/selfie`);
     await app.restart();
 
+    // A relaunch reloads the app from Metro, which takes a while on a hosted Mac.
+    await expect(screen.getByTestId('start-group')).toBeVisible({ timeout: 120_000 });
     await tap(screen.getByTestId('start-group'));
     await screen.getByTestId('group-name').fill('Pizza Night');
     await screen.getByTestId('my-name').fill('Dani');
@@ -31,6 +33,7 @@ test(
     // Two friends join from the web invite page, then the group screen is opened afresh.
     await control('POST', `${userPath(email)}/friends`, { names: ['Ziv', 'Noa'] });
     await app.restart();
+    await expect(screen.getByRole('button', /Pizza Night/)).toBeVisible({ timeout: 120_000 });
     await tap(screen.getByRole('button', /Pizza Night/));
     await tap(screen.getByTestId('make-video'));
 

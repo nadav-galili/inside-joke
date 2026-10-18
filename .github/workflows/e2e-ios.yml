@@ -87,6 +87,17 @@ jobs:
       - run: pnpm exec e2e run --target ios --reporter list,junit
         working-directory: apps/e2e
 
+      # The traces in the log too, so a failure can be read without downloading the artifact.
+      - name: Print the traces of failed tests
+        if: failure()
+        run: |
+          for f in apps/e2e/.e2e/results/*/trace.md apps/e2e/.e2e/logs/stack.log; do
+            [ -f "$f" ] || continue
+            echo "::group::$f"
+            tail -n 300 "$f"
+            echo "::endgroup::"
+          done
+
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:

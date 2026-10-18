@@ -26,7 +26,7 @@ export const newEmail = () => `e2e-${randomUUID().slice(0, 8)}+clerk_test@exampl
 
 /** Waits for a locator, then taps it: buttons arrive with entrance animations. */
 export async function tap(locator: Locator) {
-  await expect(locator).toBeEnabled({ timeout: 15_000 });
+  await expect(locator).toBeEnabled({ timeout: process.env.CI ? 45_000 : 15_000 });
   await locator.tap();
 }
 
