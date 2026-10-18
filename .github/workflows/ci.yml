@@ -33,3 +33,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      # The simulator tests need a Mac; CI keeps them compiling and linted.
+      - run: pnpm --dir apps/e2e install --frozen-lockfile --ignore-workspace
+      - run: pnpm --dir apps/e2e typecheck
+      - run: pnpm exec eslint apps/e2e

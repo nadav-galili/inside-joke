@@ -51,6 +51,7 @@ export default function NewGroup() {
             onPress={create}
             busy={busy}
             disabled={!!missing}
+            testID="create-group"
           />
         </>
       }
@@ -68,6 +69,7 @@ export default function NewGroup() {
         maxLength={MAX_GROUP_NAME}
         autoFocus
         returnKeyType="next"
+        testID="group-name"
       />
       <Field
         label="What does the group call you?"
@@ -77,6 +79,7 @@ export default function NewGroup() {
         maxLength={MAX_DISPLAY_NAME}
         returnKeyType="done"
         onSubmitEditing={create}
+        testID="my-name"
       />
     </Screen>
   );

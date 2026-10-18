@@ -92,7 +92,11 @@ export default function Group() {
           )}
           {/* Until the cast is big enough, the main action is the one that grows it. */}
           {castReady ? (
-            <Button title="Make a video" onPress={() => router.push(`/groups/${id}/new-video`)} />
+            <Button
+              title="Make a video"
+              onPress={() => router.push(`/groups/${id}/new-video`)}
+              testID="make-video"
+            />
           ) : meWithoutFace ? (
             <Button title="Add your selfie" onPress={addSelfie} />
           ) : (

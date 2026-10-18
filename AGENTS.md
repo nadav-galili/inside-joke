@@ -28,6 +28,7 @@ The same stack as Mibo (nadav-galili/chores): a pnpm + Turborepo monorepo on Nod
   in subtitles and the watermark, then uploads to R2).
 - `packages/db`: Drizzle schema, client and migrations, shared by the API and the worker.
 - `packages/shared`: zod schemas and constants shared by every app.
+- `apps/e2e`: iOS Simulator end-to-end tests, outside the pnpm workspace with its own lockfile.
 
 ## Commands
 
@@ -37,6 +38,9 @@ The same stack as Mibo (nadav-galili/chores): a pnpm + Turborepo monorepo on Nod
   (needs `ANTHROPIC_API_KEY` and `FAL_KEY`; asks before the paid fal call).
 - Schema change: edit `packages/db/src/schema.ts`, then `pnpm --filter @insidejoke/db db:generate`.
   The API runs migrations on start.
+- End-to-end tests on the iOS Simulator: `apps/e2e` (tester-army/e2e), installed on its own with
+  `pnpm --dir apps/e2e install --ignore-workspace`, run with `pnpm --dir apps/e2e test:ios`. They use a
+  local API and database with no worker, so they never generate a video. See `apps/e2e/README.md`.
 
 ## Rules
 

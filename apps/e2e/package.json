@@ -1,0 +1,26 @@
+{
+  "name": "e2e-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.18.3",
+  "scripts": {
+    "stack": "tsx src/stack.ts",
+    "test:ios": "e2e run --target ios",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@insidejoke/db": "link:../../packages/db",
+    "@insidejoke/shared": "link:../../packages/shared"
+  },
+  "devDependencies": {
+    "@ai-sdk/anthropic": "^4.0.82",
+    "@e2e-dev/mobile": "^0.12.3",
+    "@types/node": "^22.15.0",
+    "ai": "^7.0.143",
+    "e2e": "^0.21.2",
+    "tsx": "^4.20.0",
+    "typescript": "~6.0.3"
+  },
+  "//": "hono, drizzle-orm and @clerk/backend come from the root install, so they are the same copies the API uses."
+}

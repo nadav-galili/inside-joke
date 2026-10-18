@@ -15,6 +15,7 @@ expo-env.d.ts
 *.mobileprovision
 apps/mobile/android/
 apps/mobile/ios/
+apps/mobile/build/
 
 # Android build artifacts (`eas build --local` writes them next to eas.json).
 *.apk
@@ -24,3 +25,6 @@ apps/mobile/ios/
 .screenshots-captures/
 .preview-captures/
 .design-captures/
+
+# e2e run output: reports, logs, recordings and the replay cache.
+.e2e/

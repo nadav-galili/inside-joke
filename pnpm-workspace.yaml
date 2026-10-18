@@ -1,6 +1,9 @@
 packages:
   - apps/*
   - packages/*
+  # The simulator tests keep their own lockfile, so their tooling never changes what the app,
+  # API or worker install.
+  - '!apps/e2e'
 
 # The app crashes when react-dom differs from react, and with the hoisted
 # layout a library's own react-dom can win, so pin it to the app's react.

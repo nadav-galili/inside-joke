@@ -53,7 +53,12 @@ export default function AiConsent() {
       footer={
         <>
           <ErrorText>{error}</ErrorText>
-          <Checkbox checked={adult} onToggle={() => setAdult(!adult)} style={styles.check}>
+          <Checkbox
+            checked={adult}
+            onToggle={() => setAdult(!adult)}
+            style={styles.check}
+            testID="consent-adult"
+          >
             <Body>I'm 18 or older.</Body>
           </Checkbox>
           <Checkbox checked={stats} onToggle={() => setStats(!stats)} style={styles.check}>
@@ -66,6 +71,7 @@ export default function AiConsent() {
             onPress={agree}
             busy={busy}
             disabled={!adult}
+            testID="consent-agree"
           />
         </>
       }

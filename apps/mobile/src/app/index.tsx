@@ -63,7 +63,15 @@ export default function Home() {
 
   const empty = groups.data?.length === 0;
   return (
-    <Screen footer={<Button title="Start a group" onPress={() => router.push('/groups/new')} />}>
+    <Screen
+      footer={
+        <Button
+          title="Start a group"
+          onPress={() => router.push('/groups/new')}
+          testID="start-group"
+        />
+      }
+    >
       <Stack.Screen
         options={{
           headerRight: () => (

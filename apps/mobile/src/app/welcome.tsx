@@ -63,7 +63,12 @@ export default function Welcome() {
           <Image source={logo} style={styles.logo} />
           <Text style={styles.brandName}>Inside Joke</Text>
         </View>
-        <Pressy accessibilityRole="button" hitSlop={12} onPress={() => finish(true)}>
+        <Pressy
+          accessibilityRole="button"
+          hitSlop={12}
+          testID="welcome-sign-in"
+          onPress={() => finish(true)}
+        >
           <Text style={styles.signIn}>Sign in</Text>
         </Pressy>
       </View>
@@ -114,7 +119,11 @@ export default function Welcome() {
             <Dot key={p.title} index={i} x={x} width={width} />
           ))}
         </View>
-        <Button title={last ? 'Make one starring your friends' : 'Next'} onPress={next} />
+        <Button
+          title={last ? 'Make one starring your friends' : 'Next'}
+          onPress={next}
+          testID="welcome-next"
+        />
       </View>
     </View>
   );
