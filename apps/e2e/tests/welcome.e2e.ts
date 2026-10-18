@@ -21,5 +21,7 @@ test('the welcome tour leads to sign-in', async ({ app, device, screen }) => {
   await expect(screen.getByTestId('welcome-next')).toHaveText('Make one starring your friends');
   await tap(screen.getByTestId('welcome-next'));
   await expect(screen.getByTestId('email')).toBeVisible();
+  // On a phone the email button sits below the fold.
+  await screen.scrollUntilVisible(screen.getByTestId('send-code'), { direction: 'down' });
   await expect(screen.getByTestId('send-code')).toBeDisabled();
 });

@@ -29,7 +29,7 @@ refuses production Clerk keys and any database that is not on `localhost`.
 4. From the repo root: `pnpm install`, then `pnpm --dir apps/e2e install --ignore-workspace`.
    The tests keep their own lockfile, so their tooling never changes what the app installs.
 5. `cp apps/e2e/.env.example apps/e2e/.env` and fill in the Clerk **development** instance keys
-   (`pk_test_…`, `sk_test_…`). New test users are `…+clerk_test@insidejoke.test` addresses, which
+   (`pk_test_…`, `sk_test_…`). New test users are `…+clerk_test@example.com` addresses (Clerk rejects `.test` domains), which
    Clerk's development instance signs in with the code `424242` without sending an email.
 
 ## Run

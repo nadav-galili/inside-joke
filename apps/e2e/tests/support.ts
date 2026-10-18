@@ -22,7 +22,7 @@ export const userPath = (email: string) => `/users/${encodeURIComponent(email)}`
 export type UserState = { seen: boolean; aiConsented: boolean; hasSelfie: boolean };
 
 /** A new Clerk test address: Clerk's development instance accepts 424242 for it, no email sent. */
-export const newEmail = () => `e2e-${randomUUID().slice(0, 8)}+clerk_test@insidejoke.test`;
+export const newEmail = () => `e2e-${randomUUID().slice(0, 8)}+clerk_test@example.com`;
 
 /** Waits for a locator, then taps it: buttons arrive with entrance animations. */
 export async function tap(locator: Locator) {
@@ -39,9 +39,12 @@ export async function signUp(screen: Screen, email: string) {
   await expect(screen.getByTestId('welcome-sign-in')).toBeVisible({ timeout: 120_000 });
   await tap(screen.getByTestId('welcome-sign-in'));
   await screen.getByTestId('email').fill(email);
+  // On a phone the email and code buttons sit below the fold.
+  await screen.scrollUntilVisible(screen.getByTestId('send-code'), { direction: 'down' });
   await tap(screen.getByTestId('send-code'));
   await expect(screen.getByTestId('code')).toBeVisible({ timeout: 20_000 });
   await screen.getByTestId('code').fill('424242');
+  await screen.scrollUntilVisible(screen.getByTestId('verify'), { direction: 'down' });
   await tap(screen.getByTestId('verify'));
   await expect
     .poll(() => control<UserState>('GET', userPath(email)), {
