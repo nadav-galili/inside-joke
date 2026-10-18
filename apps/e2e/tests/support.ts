@@ -31,6 +31,20 @@ export async function tap(locator: Locator) {
 }
 
 /**
+ * Types into a field. On a hosted Mac the simulator's automation runner sometimes overruns its
+ * watchdog while the keyboard comes up; the field is untouched then, so one more try is safe.
+ */
+export async function fill(locator: Locator, text: string) {
+  try {
+    await locator.fill(text);
+  } catch (err) {
+    if (!String(err).includes('overran its watchdog')) throw err;
+    await new Promise((r) => setTimeout(r, 5_000));
+    await locator.fill(text);
+  }
+}
+
+/**
  * From the welcome screen, signs up a new email with Clerk's test code and checks the app reached
  * the e2e API as that user, so a build pointed anywhere else stops here.
  */
@@ -40,11 +54,11 @@ export async function signUp(screen: Screen, email: string) {
   await tap(screen.getByTestId('welcome-sign-in'));
   // On a phone the email field and the buttons under it sit below the fold.
   await screen.scrollUntilVisible(screen.getByTestId('email'), { direction: 'down' });
-  await screen.getByTestId('email').fill(email);
+  await fill(screen.getByTestId('email'), email);
   await screen.scrollUntilVisible(screen.getByTestId('send-code'), { direction: 'down' });
   await tap(screen.getByTestId('send-code'));
   await expect(screen.getByTestId('code')).toBeVisible({ timeout: 20_000 });
-  await screen.getByTestId('code').fill('424242');
+  await fill(screen.getByTestId('code'), '424242');
   await screen.scrollUntilVisible(screen.getByTestId('verify'), { direction: 'down' });
   await tap(screen.getByTestId('verify'));
   await expect

@@ -1,6 +1,6 @@
 import { test } from '@e2e-dev/mobile';
 import { expect } from 'e2e';
-import { consent, control, newEmail, signUp, tap, userPath } from './support.ts';
+import { consent, control, fill, newEmail, signUp, tap, userPath } from './support.ts';
 
 /**
  * A new user's first video, up to the ticket: sign up, consent, selfie, group, friends, the moment,
@@ -25,8 +25,8 @@ test(
     // A relaunch reloads the app from Metro, which takes a while on a hosted Mac.
     await expect(screen.getByTestId('start-group')).toBeVisible({ timeout: 120_000 });
     await tap(screen.getByTestId('start-group'));
-    await screen.getByTestId('group-name').fill('Pizza Night');
-    await screen.getByTestId('my-name').fill('Dani');
+    await fill(screen.getByTestId('group-name'), 'Pizza Night');
+    await fill(screen.getByTestId('my-name'), 'Dani');
     await tap(screen.getByTestId('create-group'));
     await expect(screen.getByText('Invite friends to cast')).toBeVisible({ timeout: 20_000 });
 
@@ -38,7 +38,7 @@ test(
     await tap(screen.getByTestId('make-video'));
 
     await expect(screen.getByTestId('write-script')).toHaveText('Paste the moment first');
-    await screen.getByTestId('moment').fill('Ziv: who ate the last slice?\nNoa: not me\nDani: 👀');
+    await fill(screen.getByTestId('moment'), 'Ziv: who ate the last slice?\nNoa: not me\nDani: 👀');
     await device.dismissKeyboard();
     await screen.scrollUntilVisible(screen.getByTestId('genre-telenovela'));
     await tap(screen.getByTestId('genre-telenovela'));
