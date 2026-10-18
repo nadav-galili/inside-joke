@@ -3,7 +3,7 @@ import { mobile } from '@e2e-dev/mobile';
 import { mobileTools } from '@e2e-dev/mobile/tools';
 import { existsSync } from 'node:fs';
 import type { E2EConfig } from 'e2e';
-import { METRO_PORT } from './src/ports.ts';
+import { API_PORT, METRO_PORT } from './src/ports.ts';
 
 if (existsSync('.env')) process.loadEnvFile('.env');
 
@@ -35,10 +35,12 @@ export default {
           executable: 'pnpm',
           args: ['stack'],
           inheritEnv: ['E2E_*'],
-          startupTimeout: 180_000,
+          // Includes building the app's bundle, minutes on a hosted Mac.
+          startupTimeout: 600_000,
           log: '.e2e/logs/stack.log',
         },
-        readyUrl: `http://localhost:${METRO_PORT}/status`,
+        // Ready once Metro has built the bundle (src/stack.ts).
+        readyUrl: `http://127.0.0.1:${API_PORT}/__e2e/ready`,
       },
     },
   ],
@@ -55,4 +57,8 @@ export default {
       }
     : {}),
   workers: 1,
+  // Hosted Macs (CI) are several times slower than a laptop at driving the simulator.
+  ...(process.env.CI
+    ? { timeout: 360_000, launchTimeout: 240_000, actionTimeout: 90_000, assertionTimeout: 15_000 }
+    : {}),
 } satisfies E2EConfig;

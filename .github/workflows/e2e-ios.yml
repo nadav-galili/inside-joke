@@ -92,4 +92,5 @@ jobs:
         with:
           name: e2e-ios
           path: apps/e2e/.e2e
+          include-hidden-files: true
           if-no-files-found: warn

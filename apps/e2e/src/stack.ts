@@ -63,9 +63,22 @@ const app = createE2eApi(db, {
     await clerk.users.deleteUser(id);
   },
 });
-serve({ fetch: app.fetch, port: API_PORT, hostname: '127.0.0.1' }, () => {
-  console.log(`e2e api on ${publicUrl}, database ${name}`);
-});
+// The runner waits for this before launching the app (e2e.config.ts `readyUrl`), so the first launch
+// doesn't sit on a cold bundle while the tests time out.
+let bundled = false;
+serve(
+  {
+    fetch: (req) =>
+      new URL(req.url).pathname === '/__e2e/ready'
+        ? new Response(bundled ? 'ok' : 'bundling', { status: bundled ? 200 : 503 })
+        : app.fetch(req),
+    port: API_PORT,
+    hostname: '127.0.0.1',
+  },
+  () => {
+    console.log(`e2e api on ${publicUrl}, database ${name}`);
+  },
+);
 
 // Only what the app needs: no .env files, so no production key, analytics, RevenueCat or Sentry.
 const appEnv = Object.fromEntries(
@@ -91,3 +104,28 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => metro.kill(signal));
 }
 metro.on('exit', (code) => process.exit(code ?? 0));
+
+/** Builds the bundle the dev client will ask for: the one the manifest names, so the cache matches. */
+async function prewarm() {
+  const metroUrl = `http://127.0.0.1:${METRO_PORT}`;
+  for (;;) {
+    const up = await fetch(`${metroUrl}/status`).then(
+      (r) => r.ok,
+      () => false,
+    );
+    if (up) break;
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  const manifest = (await fetch(metroUrl, {
+    headers: { 'expo-platform': 'ios', accept: 'application/expo+json,application/json' },
+  }).then((r) => r.json())) as { launchAsset: { url: string } };
+  const started = Date.now();
+  const res = await fetch(manifest.launchAsset.url);
+  await res.arrayBuffer();
+  console.log(`e2e bundle ${res.status} in ${Math.round((Date.now() - started) / 1000)}s`);
+}
+prewarm()
+  .catch((err: unknown) => console.error('e2e bundle prewarm failed, the app will build it', err))
+  .finally(() => {
+    bundled = true;
+  });
