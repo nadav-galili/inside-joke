@@ -38,8 +38,9 @@ export async function signUp(screen: Screen, email: string) {
   // The first launch waits for Metro to bundle the app.
   await expect(screen.getByTestId('welcome-sign-in')).toBeVisible({ timeout: 120_000 });
   await tap(screen.getByTestId('welcome-sign-in'));
+  // On a phone the email field and the buttons under it sit below the fold.
+  await screen.scrollUntilVisible(screen.getByTestId('email'), { direction: 'down' });
   await screen.getByTestId('email').fill(email);
-  // On a phone the email and code buttons sit below the fold.
   await screen.scrollUntilVisible(screen.getByTestId('send-code'), { direction: 'down' });
   await tap(screen.getByTestId('send-code'));
   await expect(screen.getByTestId('code')).toBeVisible({ timeout: 20_000 });
