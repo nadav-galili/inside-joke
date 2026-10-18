@@ -7,39 +7,46 @@ import process from 'node:process';
 const MAX_TOKENS = 5000;
 const BYTES_PER_TOKEN = 4;
 
-// Files no agent writes by hand: lockfiles, codegen and exported assets.
-const IGNORED = [
-  /(^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock|bun\.lockb?|Podfile\.lock|Gemfile\.lock|Cargo\.lock)$/,
-  /^packages\/db\/drizzle\//, // drizzle-kit migrations and snapshots
-  /(^|\/)expo-env\.d\.ts$/,
-  /\.(min\.js|min\.css|map|snap|svg)$/,
-];
+// Files no agent writes by hand: the lockfile and drizzle-kit migrations and snapshots.
+const IGNORED = [/(^|\/)pnpm-lock\.yaml$/, /^packages\/db\/drizzle\//];
 
-// A file that says it is generated in its first lines is codegen too.
-const GENERATED_MARKER = /@generated|\bauto-?generated\b/i;
+// A file that marks itself @generated in its first lines is codegen too.
+const GENERATED_MARKER = '@generated';
+const SUBMODULE_MODE = '160000';
 
 const git = (...args) => execFileSync('git', args, { maxBuffer: 256 * 1024 * 1024 });
 
-const staged = git('diff', '--cached', '--name-only', '--diff-filter=ACMR', '-z')
-  .toString()
-  .split('\0')
-  .filter(Boolean);
+// Raw entries are ":<old mode> <new mode> <old blob> <new blob> <status>", then the
+// path (two paths for a rename or copy), all NUL-separated.
+const raw = git('diff', '--cached', '--raw', '-z', '--diff-filter=ACMR').toString().split('\0');
+const staged = [];
+for (let i = 0; i < raw.length - 1;) {
+  const [, newMode, oldBlob, newBlob, status] = raw[i].split(' ');
+  const twoPaths = status.startsWith('R') || status.startsWith('C');
+  const file = raw[i + (twoPaths ? 2 : 1)];
+  i += twoPaths ? 3 : 2;
+  // Skip renames, copies and mode changes that leave the content as it was.
+  if (newMode === SUBMODULE_MODE || newBlob === oldBlob) continue;
+  staged.push({ file, blob: newBlob });
+}
 
+const maxBytes = MAX_TOKENS * BYTES_PER_TOKEN;
 const oversized = [];
-for (const file of staged) {
+for (const { file, blob } of staged) {
   if (IGNORED.some((pattern) => pattern.test(file))) continue;
-  const blob = git('cat-file', 'blob', `:${file}`);
+  const size = Number(git('cat-file', '-s', blob).toString());
+  if (size <= maxBytes) continue;
+  const content = git('cat-file', 'blob', blob);
   // Same heuristic as git: a NUL byte near the start means binary (images, video, fonts).
-  if (blob.subarray(0, 8000).includes(0)) continue;
-  if (GENERATED_MARKER.test(blob.subarray(0, 500).toString())) continue;
-  const tokens = Math.ceil(blob.length / BYTES_PER_TOKEN);
-  if (tokens > MAX_TOKENS) oversized.push({ file, tokens });
+  if (content.subarray(0, 8000).includes(0)) continue;
+  if (content.subarray(0, 500).toString().includes(GENERATED_MARKER)) continue;
+  oversized.push({ file, tokens: Math.ceil(size / BYTES_PER_TOKEN) });
 }
 
 if (oversized.length > 0) {
   const list = oversized.map(({ file, tokens }) => `  ${file}  ~${tokens} tokens`).join('\n');
   process.stderr.write(`
-Commit blocked: ${oversized.length === 1 ? 'this file is' : 'these files are'} over ${MAX_TOKENS.toLocaleString('en-US')} tokens (bytes / ${BYTES_PER_TOKEN}, so about ${(MAX_TOKENS * BYTES_PER_TOKEN) / 1000} KB):
+Commit blocked: ${oversized.length === 1 ? 'this file is' : 'these files are'} over ${MAX_TOKENS.toLocaleString('en-US')} tokens (bytes / ${BYTES_PER_TOKEN}, so about ${maxBytes / 1000} KB):
 
 ${list}
 
@@ -62,7 +69,7 @@ Split each file into smaller modules, then stage the result and commit again:
      and the shrunken original, and commit.
 
 Aim for each file to stay well under the limit so the next edit does not trip it.
-Lockfiles, drizzle migrations, binaries and files marked @generated are skipped.
+pnpm-lock.yaml, drizzle migrations, binaries and files marked @generated are skipped.
 `);
   process.exit(1);
 }
