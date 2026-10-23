@@ -5,14 +5,17 @@ import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { purchases, users, type Db } from '@insidejoke/db';
 
-/** The fields of a RevenueCat webhook event this API uses; the whole event is kept as sent. */
+/**
+ * The fields of a RevenueCat webhook event this API uses; the whole event is kept as sent.
+ * RevenueCat sends fields that don't apply as null (test events have no transaction_id).
+ */
 const eventSchema = z.object({
   event: z.object({
     type: z.string(),
     app_user_id: z.string(),
-    product_id: z.string().optional(),
-    transaction_id: z.string().optional(),
-    cancel_reason: z.string().optional(),
+    product_id: z.string().nullish(),
+    transaction_id: z.string().nullish(),
+    cancel_reason: z.string().nullish(),
   }),
 });
 
