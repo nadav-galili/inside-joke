@@ -418,6 +418,18 @@ describe.skipIf(!testDbUrl)('api', () => {
     expect(((await me.call('GET', '/me')).body as Me).videoCredits).toBe(0);
   });
 
+  it("acknowledges RevenueCat's test event, which sends null fields", async () => {
+    expect(
+      await webhook({
+        type: 'TEST',
+        app_user_id: crypto.randomUUID(),
+        product_id: 'test_product',
+        transaction_id: null,
+        cancel_reason: null,
+      }),
+    ).toBe(200);
+  });
+
   it('lets a friend in a video take it down from their manage link', async () => {
     const me = client();
     await me.call('POST', '/me/ai-consent', { version: AI_CONSENT_VERSION, adult: true });
