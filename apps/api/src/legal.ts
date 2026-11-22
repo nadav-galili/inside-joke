@@ -52,8 +52,8 @@ export function legalRoutes(supportEmail: string | undefined, controller: string
               never see your card.
             </li>
             <li>
-              <b>Usage stats, only if you turn them on:</b> which screens you use, so we can improve
-              the app. They're off until you tick "Share usage stats" in Settings.
+              <b>Usage stats, unless you turn them off:</b> which screens you use, so we can improve
+              the app. Untick "Share usage stats" on the consent screen or in Settings to stop them.
             </li>
             <li><b>Crash reports:</b> errors and the device details needed to fix them.</li>
             <li><b>Notification token:</b> to tell you when your video is ready.</li>
@@ -86,7 +86,10 @@ export function legalRoutes(supportEmail: string | undefined, controller: string
               given on the consent screen or the invite page. You can withdraw it at any time by
               removing your face or deleting your account.
             </li>
-            <li><b>Usage stats:</b> your consent, through the Settings switch.</li>
+            <li>
+              <b>Usage stats:</b> our legitimate interest in improving the app. You can object at
+              any time with the "Share usage stats" switch.
+            </li>
             <li>
               <b>Crash reports and the safety checks on scripts and videos:</b> our legitimate
               interest in keeping the app working and stopping harmful videos.

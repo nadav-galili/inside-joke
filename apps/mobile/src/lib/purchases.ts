@@ -60,10 +60,12 @@ export async function buyVideo(loadMe: () => Promise<Me>): Promise<BuyResult> {
     if (!product) throw new Error(`product ${VIDEO_PRODUCT_ID} not found`);
     await Purchases.purchaseStoreProduct(product);
   } catch (e) {
-    if ((e as { code?: string }).code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
+    const code = (e as { code?: string }).code;
+    if (code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
       track('purchase_cancelled');
       return 'cancelled';
     }
+    track('purchase_failed', { code: code ?? 'unknown' });
     throw e;
   }
   track('purchase_completed');
@@ -71,5 +73,6 @@ export async function buyVideo(loadMe: () => Promise<Me>): Promise<BuyResult> {
     if ((await loadMe()).videoCredits > before) return 'bought';
     await new Promise((r) => setTimeout(r, 1000));
   }
+  track('purchase_pending');
   return 'pending';
 }

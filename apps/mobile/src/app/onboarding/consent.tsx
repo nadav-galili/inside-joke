@@ -26,8 +26,8 @@ import { useApi } from '../../lib/api';
 export default function AiConsent() {
   const call = useApi();
   const [adult, setAdult] = useState(false);
-  // Optional and off until ticked: GDPR doesn't count a pre-ticked box as consent.
-  const [stats, setStats] = useState(false);
+  // On by default; unticking it turns usage stats off (also in Settings).
+  const [stats, setStats] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -63,7 +63,7 @@ export default function AiConsent() {
           </Checkbox>
           <Checkbox checked={stats} onToggle={() => setStats(!stats)} style={styles.check}>
             <Body muted>
-              Optional: share usage stats (which screens you use) to help us improve the app.
+              Share usage stats (which screens you use) to help us improve the app.
             </Body>
           </Checkbox>
           <Button

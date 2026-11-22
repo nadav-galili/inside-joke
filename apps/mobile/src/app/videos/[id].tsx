@@ -1,4 +1,5 @@
 import {
+  APP_STORE_URL,
   MAX_SCRIPT_LINE,
   REPORT_REASONS,
   type ApproveResult,
@@ -10,10 +11,9 @@ import {
 } from '@insidejoke/shared';
 import { File, Paths } from 'expo-file-system';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef, useState } from 'react';
-import { ActionSheetIOS, Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActionSheetIOS, Alert, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import {
   Curtain,
@@ -343,13 +343,29 @@ function ScriptReview({
     }
   }
 
-  const price = !me.data
-    ? { price: '', caption: TICKET_CAPTION }
+  // What the Roll camera ticket costs this user: their free film, a saved ticket, or a purchase.
+  const pays = !me.data
+    ? null
     : !me.data.freeVideoUsed
-      ? { price: 'Free', caption: 'Your first film is on us' }
+      ? 'free'
       : me.data.videoCredits > 0
+        ? 'credit'
+        : 'purchase';
+  useEffect(() => {
+    if (!pays) return;
+    track('script_viewed', { pays });
+    // The paywall is the Roll camera ticket showing the store price, not Apple's sheet.
+    if (pays === 'purchase') track('paywall_viewed');
+  }, [pays]);
+
+  const price =
+    pays === 'free'
+      ? { price: 'Free', caption: 'Your first film is on us' }
+      : pays === 'credit'
         ? { price: '1 ticket', caption: TICKET_CAPTION }
-        : { price: storePrice ?? '$4.99', caption: TICKET_CAPTION };
+        : pays === 'purchase'
+          ? { price: storePrice ?? '$4.99', caption: TICKET_CAPTION }
+          : { price: '', caption: TICKET_CAPTION };
 
   return (
     <Screen
@@ -499,7 +515,12 @@ function Player({ video }: { video: VideoDetail }) {
     try {
       const file = new File(Paths.cache, `inside-joke-${video.id}.mp4`);
       if (!file.exists) await File.downloadFileAsync(video.playUrl!, file);
-      await Sharing.shareAsync(file.uri, { mimeType: 'video/mp4', UTI: 'public.mpeg-4' });
+      // The caption carries the App Store link, so every shared video can bring in a new group.
+      const result = await Share.share({
+        url: file.uri,
+        message: `Made with Inside Joke. Star in your own: ${APP_STORE_URL}`,
+      });
+      if (result.action !== Share.sharedAction) return;
       track('video_shared');
       success();
       setSent(true);
