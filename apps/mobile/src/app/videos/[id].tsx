@@ -1,4 +1,5 @@
 import {
+  APP_STORE_URL,
   MAX_SCRIPT_LINE,
   REPORT_REASONS,
   type ApproveResult,
@@ -10,10 +11,9 @@ import {
 } from '@insidejoke/shared';
 import { File, Paths } from 'expo-file-system';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import * as Sharing from 'expo-sharing';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEffect, useRef, useState } from 'react';
-import { ActionSheetIOS, Alert, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActionSheetIOS, Alert, Share, StyleSheet, Text, TextInput, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import {
   Curtain,
@@ -515,7 +515,12 @@ function Player({ video }: { video: VideoDetail }) {
     try {
       const file = new File(Paths.cache, `inside-joke-${video.id}.mp4`);
       if (!file.exists) await File.downloadFileAsync(video.playUrl!, file);
-      await Sharing.shareAsync(file.uri, { mimeType: 'video/mp4', UTI: 'public.mpeg-4' });
+      // The caption carries the App Store link, so every shared video can bring in a new group.
+      const result = await Share.share({
+        url: file.uri,
+        message: `Made with Inside Joke. Star in your own: ${APP_STORE_URL}`,
+      });
+      if (result.action !== Share.sharedAction) return;
       track('video_shared');
       success();
       setSent(true);

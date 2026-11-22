@@ -1,5 +1,6 @@
 import {
   AI_CONSENT_VERSION,
+  APP_STORE_URL,
   AI_PROVIDERS,
   FACE_CONSENT_TEXT,
   FACE_CONSENT_VERSION,
@@ -105,6 +106,9 @@ export function joinRoutes(db: Db, storage: Storage, publicUrl: string) {
                 id="manage"
                 href="#"
               ></a>
+            </p>
+            <p class="muted">
+              Want to make your own? <a href="${APP_STORE_URL}">Get Inside Joke on the App Store</a>.
             </p>
           </div>
           <script>

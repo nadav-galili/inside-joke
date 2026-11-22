@@ -31,6 +31,9 @@ export const FACE_CONSENT_TEXT =
 /** The App Store consumable for one video, sold through RevenueCat. */
 export const VIDEO_PRODUCT_ID = 'video_15s';
 
+/** The app's App Store page, added to shared videos and the invite page. */
+export const APP_STORE_URL = 'https://apps.apple.com/app/id6823909277';
+
 export const MAX_GROUP_NAME = 60;
 export const MAX_DISPLAY_NAME = 40;
 /** A group chat's worth of friends; an invite link stops working past it. */
