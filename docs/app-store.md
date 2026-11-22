@@ -124,7 +124,7 @@ Tracking: **No**. Nothing is used for advertising or shared with data brokers.
 | User Content: Other User Content | Yes (pasted chat text, scripts, video reports) | Yes | App Functionality |
 | Identifiers: User ID | Yes | Yes | App Functionality, Analytics |
 | Purchases: Purchase History | Yes (RevenueCat) | Yes | App Functionality |
-| Usage Data: Product Interaction | Yes (PostHog, only after the user opts in) | Yes | Analytics |
+| Usage Data: Product Interaction | Yes (PostHog, on until the user turns it off) | Yes | Analytics |
 | Diagnostics: Crash Data | Yes (Sentry) | No | App Functionality |
 | Diagnostics: Performance Data | Yes (Sentry) | No | App Functionality |
 
@@ -250,8 +250,8 @@ and the whole list is run again on the new build.
 
 **Compliance**
 
-- [ ] The usage-stats box starts unticked. With it off, PostHog's live view shows no events; after
-      ticking it in Settings, events appear.
+- [ ] The usage-stats box starts ticked. With it on, PostHog's live view shows events; after
+      unticking it in Settings, they stop.
 - [ ] The invite page links to the privacy policy and terms next to its consent boxes.
 - [ ] The privacy page names the data controller with a postal address and the support email.
 - [ ] Delete account removes the user's groups, selfies and videos from R2 and the user from Clerk.

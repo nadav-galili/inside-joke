@@ -64,6 +64,7 @@ export async function buyVideo(loadMe: () => Promise<Me>): Promise<BuyResult> {
       track('purchase_cancelled');
       return 'cancelled';
     }
+    track('purchase_failed', { code: String((e as { code?: string }).code ?? 'unknown') });
     throw e;
   }
   track('purchase_completed');
@@ -71,5 +72,6 @@ export async function buyVideo(loadMe: () => Promise<Me>): Promise<BuyResult> {
     if ((await loadMe()).videoCredits > before) return 'bought';
     await new Promise((r) => setTimeout(r, 1000));
   }
+  track('purchase_pending');
   return 'pending';
 }

@@ -343,6 +343,20 @@ function ScriptReview({
     }
   }
 
+  // What the Roll camera ticket costs this user: their free film, a saved ticket, or a purchase.
+  const pays = !me.data
+    ? null
+    : !me.data.freeVideoUsed
+      ? 'free'
+      : me.data.videoCredits > 0
+        ? 'credit'
+        : 'purchase';
+  useEffect(() => {
+    if (!pays) return;
+    track('script_viewed', { pays });
+    if (pays === 'purchase') track('paywall_viewed');
+  }, [pays]);
+
   const price = !me.data
     ? { price: '', caption: TICKET_CAPTION }
     : !me.data.freeVideoUsed
