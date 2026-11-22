@@ -354,16 +354,18 @@ function ScriptReview({
   useEffect(() => {
     if (!pays) return;
     track('script_viewed', { pays });
+    // The paywall is the Roll camera ticket showing the store price, not Apple's sheet.
     if (pays === 'purchase') track('paywall_viewed');
   }, [pays]);
 
-  const price = !me.data
-    ? { price: '', caption: TICKET_CAPTION }
-    : !me.data.freeVideoUsed
+  const price =
+    pays === 'free'
       ? { price: 'Free', caption: 'Your first film is on us' }
-      : me.data.videoCredits > 0
+      : pays === 'credit'
         ? { price: '1 ticket', caption: TICKET_CAPTION }
-        : { price: storePrice ?? '$4.99', caption: TICKET_CAPTION };
+        : pays === 'purchase'
+          ? { price: storePrice ?? '$4.99', caption: TICKET_CAPTION }
+          : { price: '', caption: TICKET_CAPTION };
 
   return (
     <Screen

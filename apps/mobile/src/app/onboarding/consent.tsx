@@ -63,7 +63,7 @@ export default function AiConsent() {
           </Checkbox>
           <Checkbox checked={stats} onToggle={() => setStats(!stats)} style={styles.check}>
             <Body muted>
-              Share usage stats (which screens you use) to help us improve the app. Untick to turn them off.
+              Share usage stats (which screens you use) to help us improve the app.
             </Body>
           </Checkbox>
           <Button

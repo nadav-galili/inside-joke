@@ -56,7 +56,7 @@ export function analyticsEnabled(): boolean {
   return posthog ? !posthog.optedOut : false;
 }
 
-/** Turns usage stats on or off; off can be chosen at any time in Settings. */
+/** Turns usage stats on or off, from the consent screen or at any time in Settings. */
 export async function setAnalyticsEnabled(enabled: boolean) {
   if (enabled) await posthog?.optIn();
   else await posthog?.optOut();
@@ -64,5 +64,9 @@ export async function setAnalyticsEnabled(enabled: boolean) {
 
 /** Forgets the user on sign-out. The device keeps its on or off choice. */
 export function resetAnalytics() {
-  posthog?.reset();
+  if (!posthog) return;
+  const off = posthog.optedOut;
+  posthog.reset();
+  // reset() may clear the stored choice, which would turn stats back on.
+  if (off) void posthog.optOut();
 }
